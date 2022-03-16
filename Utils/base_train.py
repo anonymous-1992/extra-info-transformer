@@ -72,10 +72,15 @@ def batch_sampled_data(data, max_samples, time_steps, num_encoder_steps, column_
             split_data_map[identifier] = df
 
     if 0 < max_samples < len(valid_sampling_locations):
-        ranges = [
+        '''ranges = [
           valid_sampling_locations[i] for i in np.random.choice(
               len(valid_sampling_locations), max_samples, replace=False)
+        ]'''
+        # choose samples in order
+        ranges = [
+            valid_sampling_locations[i] for i in np.arange(0, max_samples)
         ]
+
     else:
         print('Max samples={} exceeds # available segments={}'.format(
           max_samples, len(valid_sampling_locations)))

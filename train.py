@@ -1,4 +1,4 @@
-from models.context_aware_attn import Attn
+from models.extra_info_atttn import Attn
 from torch.optim import Adam
 import torch.nn as nn
 import numpy as np
@@ -47,6 +47,9 @@ class NoamOpt:
             param_group['lr'] = lr
 
 
+torch.autograd.set_detect_anomaly(True)
+
+
 def train(args, model, train_en, train_de, train_y,
           test_en, test_de, test_y, epoch, e, val_loss,
           val_inner_loss, optimizer, train_loss_list,
@@ -56,8 +59,10 @@ def train(args, model, train_en, train_de, train_y,
     try:
         model.train()
         total_loss = 0
+
         for batch_id in range(train_en.shape[0]):
-            output = model(train_en[batch_id], train_de[batch_id])
+            output = \
+                model(train_en[batch_id], train_de[batch_id])
             loss = criterion(output, train_y[batch_id])
             train_loss_list.append(loss.item())
             total_loss += loss.item()
@@ -109,7 +114,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="train context-aware attention")
     parser.add_argument("--name", type=str, default='context-aware-attn')
-    parser.add_argument("--exp_name", type=str, default='watershed')
+    parser.add_argument("--exp_name", type=str, default='electricity')
     parser.add_argument("--seed", type=int, default=21)
     parser.add_argument("--cuda", type=str, default='cuda:0')
     args = parser.parse_args()
@@ -130,7 +135,7 @@ def main():
     data_csv_path = "{}.csv".format(args.exp_name)
 
     print("Loading & splitting data...")
-    raw_data = pd.read_csv(data_csv_path, index_col=0)
+    raw_data = pd.read_csv(data_csv_path)
     train_data, valid, test = formatter.split_data(raw_data)
     train_max, valid_max = formatter.get_num_samples_for_calibration()
     params = formatter.get_experiment_params()
@@ -158,7 +163,7 @@ def main():
 
     criterion = nn.MSELoss()
     hyper_param = list([model_params['minibatch_size'], [model_params['num_heads']],
-                        model_params['hidden_layer_size'], args.filter_lengths])
+                        model_params['hidden_layer_size']])
     configs = create_config(hyper_param)
     print('number of config: {}'.format(len(configs)))
 
@@ -183,9 +188,8 @@ def main():
                      d_model=d_model,
                      d_ff=d_model*4,
                      d_k=d_k, d_v=d_k, n_heads=n_heads,
-                     n_layers=params['stack_size'], src_pad_index=0,
-                     tgt_pad_index=0, device=device,
-                     context_lengths=model_params['context_lengths'])
+                     n_layers=model_params['stack_size'], src_pad_index=0,
+                     tgt_pad_index=0, device=device)
         model.to(device)
 
         optim = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)

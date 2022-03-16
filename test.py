@@ -1,6 +1,6 @@
 import argparse
 import json
-from models.context_aware_attn import Attn
+from models.extra_info_atttn import Attn
 import torch.nn as nn
 import torch
 import os
