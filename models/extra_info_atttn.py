@@ -68,7 +68,7 @@ class ScaledDotProductAttention(nn.Module):
 
             def get_div_tuple(tple):
 
-                tple_div = torch.zeros(num_pieces, piece_size, h, tple.shape[2], tple.shape[-1])
+                tple_div = torch.zeros(num_pieces, piece_size, h, tple.shape[2], tple.shape[-1]).to(self.device)
                 start = 0
                 for j in range(0, num_pieces):
                     while start+piece_size < tple.shape[0]:
@@ -93,7 +93,7 @@ class ScaledDotProductAttention(nn.Module):
             piece_size = math.ceil(b / num_pieces)
             attn = torch.zeros(num_pieces, piece_size, h, Q.shape[2], K.shape[2]).to(self.device)
             cntx = torch.zeros(num_pieces, K_div.shape[1], h, Q_div.shape[3], d).to(self.device)
-            scores = torch.zeros(num_pieces, K_div.shape[1], h, Q_div.shape[3], K_div.shape[3])
+            scores = torch.zeros(num_pieces, K_div.shape[1], h, Q_div.shape[3], K_div.shape[3]).to(self.device)
             ind = int(K.shape[2] / (math.log2(K.shape[2])))
 
             def cal_attn_inner(p):
