@@ -12,7 +12,7 @@ import random
 import pandas as pd
 from data.data_loader import ExperimentConfig
 from Utils.base_train import batching, batch_sampled_data
-
+import time
 
 class NoamOpt:
 
@@ -59,7 +59,7 @@ def train(args, model, train_en, train_de, train_y,
     try:
         model.train()
         total_loss = 0
-
+        start = time.time()
         for batch_id in range(train_en.shape[0]):
             output = \
                 model(train_en[batch_id], train_de[batch_id])
@@ -69,6 +69,9 @@ def train(args, model, train_en, train_de, train_y,
             optimizer.zero_grad()
             loss.backward()
             optimizer.step_and_update_lr()
+        end = time.time()
+        total_time = end - start
+        print("total time: {}".format(total_time))
 
         print("Train epoch: {}, loss: {:.4f}".format(epoch, total_loss))
 
