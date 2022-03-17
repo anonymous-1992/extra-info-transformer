@@ -51,7 +51,7 @@ class ScaledDotProductAttention(nn.Module):
 
         if self_attn:
             b, h, l_k, d = K.shape
-            V_pad = F.pad(V.reshape(b, h*d, l_k), pad=(self.padding-1, 0, 0, 0))
+            V_pad = F.pad(V.reshape(b, h*d, l_k), pad=(self.padding - 1, 0, 0, 0))
             V_p = self.conv1d(V_pad).reshape(b, h, -1, d)
             num_pieces = V_p.shape[2]
             p_size = l_k
@@ -59,7 +59,7 @@ class ScaledDotProductAttention(nn.Module):
 
             def get_k_extend(K):
                 b = K.shape[0]
-                K_pad = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding-1, 0, 0, 0))
+                K_pad = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding - 1, 0, 0, 0))
                 K_p = self.conv1d(K_pad).reshape(-1, h * d, b)
                 K_shrink_pad = F.pad(K_p, pad=(p_size - 1, 0, 0, 0))
                 K_shrink_unfold = K_shrink_pad.unfold(-1, p_size, 1)
