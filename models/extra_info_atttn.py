@@ -43,88 +43,77 @@ class ScaledDotProductAttention(nn.Module):
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
-        '''self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
+        self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
         self.padding = kernel
-        self.combine = nn.Linear(2, 1).to(device)'''
+        self.combine = nn.Linear(2, 1).to(device)
+        self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, Q, K, V, attn_mask, self_attn=False):
+    def forward(self, Q, K, V, attn_mask, self_attn=True):
 
-        '''if self_attn:
+        if self_attn:
             b, h, l_k, d = K.shape
-            V_pad = F.pad(V.reshape(b, h*d, l_k), pad=(self.padding - 1, 0, 0, 0))
-            V_p = self.conv1d(V_pad).reshape(b, h, -1, d)
-            num_pieces = V_p.shape[2]
-            p_size = l_k
-            piece_size = math.ceil(b / num_pieces)
 
-            def get_k_extend(K):
-                b = K.shape[0]
-                K_pad = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding - 1, 0, 0, 0))
-                K_p = self.conv1d(K_pad).reshape(-1, h * d, b)
-                K_shrink_pad = F.pad(K_p, pad=(p_size - 1, 0, 0, 0))
-                K_shrink_unfold = K_shrink_pad.unfold(-1, p_size, 1)
-                K_e = K_shrink_unfold.reshape(b, h, K_shrink_unfold.shape[-1] * K_shrink_unfold.shape[0], d)
-                return K_e
+            b = K.shape[0]
+            K_pad = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding - 1, 0, 0, 0))
+            K_shrink = self.conv1d(K_pad).reshape(-1, h * d, b)
+            k_length = K_shrink.shape[0]
+            num_pieces = math.ceil(b * k_length / l_k)
+            K_shrink_pad = F.pad(K_shrink, pad=(b - 1, 0, 0, 0))
+            K_shrink_unfold = K_shrink_pad.unfold(-1, b, 1)
+            K_e = K_shrink_unfold.reshape(b, h, b*k_length, d)
 
-            def get_div_tuple(tple):
+            tple_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
+            tple = K_e.permute(2, 0, 1, 3)
+            start = 0
+            for j in range(0, num_pieces):
+                while start+l_k < tple.shape[0]:
+                    tple_div[j] = tple[start:start+l_k]
+                    start += l_k
+                remain = start+l_k - tple.shape[0]
+                if remain > 0:
+                    tple_div[j, 0:remain] = tple[-remain:]
 
-                tple_div = torch.zeros(num_pieces, piece_size, h, tple.shape[2], tple.shape[-1]).to(self.device)
-                start = 0
-                for j in range(0, num_pieces):
-                    while start+piece_size < tple.shape[0]:
-                        tple_div[j] = tple[start:start+piece_size]
-                        start += piece_size
-                    remain = start+piece_size - tple.shape[0]
-                    if remain > 0:
-                        tple_div[j, 0:remain] = tple[-remain:]
-                return tple_div
+            K_div = tple_div.permute(0, 2, 3, 1, 4)
+            cntx = torch.zeros(num_pieces, b, h, Q.shape[2], d).to(self.device)
+            scores = torch.zeros(num_pieces, b, h, Q.shape[2], K_div.shape[3]).to(self.device)
+            attn = torch.zeros(num_pieces, b, h, Q.shape[2], K_div.shape[3]).to(self.device)
 
             if attn_mask is not None:
-                attn_mask = attn_mask.to(self.device)
-                attn_mask = get_div_tuple(attn_mask)
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-                attn_mask = attn_mask.unsqueeze(-1).repeat(1, 1, 1, 1, 1, num_pieces)
-                attn_mask = attn_mask.reshape(attn_mask.shape[0], piece_size, h, Q.shape[2], -1)
+                attn_mask = attn_mask.to(self.device)
 
-            K_e = get_k_extend(K)
-            K_div = get_div_tuple(K_e)
-            Q_div = get_div_tuple(Q)
-            V_div = get_div_tuple(V_p)
-            piece_size = math.ceil(b / num_pieces)
-            attn = torch.zeros(num_pieces, piece_size, h, Q.shape[2], K.shape[2]).to(self.device)
-            cntx = torch.zeros(num_pieces, K_div.shape[1], h, Q_div.shape[3], d).to(self.device)
-            scores = torch.zeros(num_pieces, K_div.shape[1], h, Q_div.shape[3], K_div.shape[3]).to(self.device)
-            ind = int(K.shape[2] / (math.log2(K.shape[2])))
-
-            def cal_attn_inner(p):
+            for p in range(K_div.shape[0]):
                 if p == 0:
-                    scores[p] = nn.Softmax(dim=-1)(
-                        torch.einsum('bhqd,bhkd->bhqk', Q_div[p], K_div[p]) / np.sqrt(self.d_k))
+                    tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, K_div[p]) / np.sqrt(self.d_k)).clone()
+                    scores[p] = tmp
                 else:
-                    scores[p] = nn.Softmax(dim=-1)(torch.einsum('bhqd,bhkd->bhqk', Q_div[p],
-                                self.combine(torch.stack((K_div[p].reshape(K_div.shape[1], h, d, -1),
-                                get_k_extend(cntx[p-1]).reshape(K_div.shape[1], h, d, -1))).permute(1, 2, 3, 4, 0)).\
-                        squeeze(-1).reshape(K_div.shape[1], h, -1, d)) / np.sqrt(self.d_k))
+                    cntx_tmp = cntx[p - 1].clone()
+                    tmp = (torch.einsum('bhqd,bhkd->bhqk', Q,  self.combine(torch.stack((K_div[p], cntx_tmp)).
+                                                        permute(1, 2, 3, 4, 0)).squeeze(-1).clone()/
+                                       np.sqrt(self.d_k))).clone()
+                    scores[p] = tmp
                 if attn_mask is not None:
-                    scores[p].masked_fill_(attn_mask[p], -1e9)
-                attn[p, :, :, :, 0::ind] = torch.max(scores[p].reshape(-1, h, Q.shape[2], K.shape[2], num_pieces), -2)[0]
-                cntx[p] = torch.einsum('bhqk,bhkd->bhqd', torch.max(scores[p].reshape(-1, h, Q.shape[2], K.shape[2],
-                                                                                       num_pieces), -2)[0], V_div[p])
-            for i in range(K_div.shape[0]):
-                cal_attn_inner(i)
+                    scores[p].masked_fill_(attn_mask, -1e9)
 
-            return cntx.reshape(num_pieces*piece_size, h, Q.shape[2], d)[:b], \
-                   attn.reshape(num_pieces*piece_size, h, Q.shape[2], K.shape[2])[:b]'''
+                attn_tmp = (self.softmax(tmp)).clone()
+                attn[p] = attn_tmp
+                cntx[p] = torch.einsum('bhqk,bhkd->bhqd', attn_tmp, V)
 
-        scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+            attn_f = torch.max(attn, 0)[0]
+            context_f = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
 
-        if attn_mask is not None:
-            attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-            attn_mask = attn_mask.to(self.device)
-            scores.masked_fill_(attn_mask, -1e9)
+            return context_f, attn_f
 
-        attn = nn.Softmax(dim=-1)(scores)
-        context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
+        else:
+            scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+
+            if attn_mask is not None:
+                attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
+                attn_mask = attn_mask.to(self.device)
+                scores.masked_fill_(attn_mask, -1e9)
+
+            attn = nn.Softmax(dim=-1)(scores)
+            context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
         return context, attn
 
 
