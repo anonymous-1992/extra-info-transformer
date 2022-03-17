@@ -80,9 +80,9 @@ class ScaledDotProductAttention(nn.Module):
                 return tple_div
 
             if attn_mask is not None:
-                attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
                 attn_mask = attn_mask.to(self.device)
                 attn_mask = get_div_tuple(attn_mask)
+                attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
                 attn_mask = attn_mask.unsqueeze(-1).repeat(1, 1, 1, 1, 1, num_pieces)
                 attn_mask = attn_mask.reshape(attn_mask.shape[0], piece_size, h, Q.shape[2], -1)
 
