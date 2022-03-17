@@ -43,13 +43,13 @@ class ScaledDotProductAttention(nn.Module):
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
-        self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
+        '''self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
         self.padding = kernel
-        self.combine = nn.Linear(2, 1).to(device)
+        self.combine = nn.Linear(2, 1).to(device)'''
 
-    def forward(self, Q, K, V, attn_mask, self_attn=True):
+    def forward(self, Q, K, V, attn_mask, self_attn=False):
 
-        if self_attn:
+        '''if self_attn:
             b, h, l_k, d = K.shape
             V_pad = F.pad(V.reshape(b, h*d, l_k), pad=(self.padding - 1, 0, 0, 0))
             V_p = self.conv1d(V_pad).reshape(b, h, -1, d)
@@ -114,18 +114,17 @@ class ScaledDotProductAttention(nn.Module):
                 cal_attn_inner(i)
 
             return cntx.reshape(num_pieces*piece_size, h, Q.shape[2], d)[:b], \
-                   attn.reshape(num_pieces*piece_size, h, Q.shape[2], K.shape[2])[:b]
+                   attn.reshape(num_pieces*piece_size, h, Q.shape[2], K.shape[2])[:b]'''
 
-        else:
-            scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+        scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
-            if attn_mask is not None:
-                attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-                attn_mask = attn_mask.to(self.device)
-                scores.masked_fill_(attn_mask, -1e9)
+        if attn_mask is not None:
+            attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
+            attn_mask = attn_mask.to(self.device)
+            scores.masked_fill_(attn_mask, -1e9)
 
-            attn = nn.Softmax(dim=-1)(scores)
-            context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
+        attn = nn.Softmax(dim=-1)(scores)
+        context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
         return context, attn
 
 
