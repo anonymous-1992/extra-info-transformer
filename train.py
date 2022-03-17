@@ -117,7 +117,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="train context-aware attention")
     parser.add_argument("--name", type=str, default='extra-info-attn')
-    parser.add_argument("--exp_name", type=str, default='electricity')
+    parser.add_argument("--exp_name", type=str, default='traffic')
     parser.add_argument("--seed", type=int, default=21)
     parser.add_argument("--cuda", type=str, default='cuda:0')
     args = parser.parse_args()
