@@ -54,28 +54,27 @@ class ScaledDotProductAttention(nn.Module):
             b, h, l_k, d = K.shape
 
             b = K.shape[0]
-            K_pad = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding - 1, 0, 0, 0))
-            K_shrink = self.conv1d(K_pad).reshape(-1, h * d, b)
-            k_length = K_shrink.shape[0]
+            K = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding - 1, 0, 0, 0))
+            K = self.conv1d(K).reshape(-1, h * d, b)
+            k_length = K.shape[0]
             num_pieces = math.ceil(b * k_length / l_k)
-            K_shrink_pad = F.pad(K_shrink, pad=(b - 1, 0, 0, 0))
-            K_shrink_unfold = K_shrink_pad.unfold(-1, b, 1)
-            K_e = K_shrink_unfold.reshape(b, h, b*k_length, d)
+            K = F.pad(K, pad=(b - 1, 0, 0, 0))
+            K = K.unfold(-1, b, 1)
+            K = K.reshape(b, h, b*k_length, d)
 
-            tple_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
-            tple = K_e.permute(2, 0, 1, 3)
+            K_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
+            K = K.permute(2, 0, 1, 3)
             start = 0
             for j in range(0, num_pieces):
-                while start+l_k < tple.shape[0]:
-                    tple_div[j] = tple[start:start+l_k]
+                while start+l_k < K.shape[0]:
+                    K_div[j] = K[start:start+l_k]
                     start += l_k
-                remain = start+l_k - tple.shape[0]
+                remain = start+l_k - K.shape[0]
                 if remain > 0:
-                    tple_div[j, 0:remain] = tple[-remain:]
+                    K_div[j, 0:remain] = K[-remain:]
 
-            K_div = tple_div.permute(0, 2, 3, 1, 4)
+            K_div = K_div.permute(0, 2, 3, 1, 4)
             cntx = torch.zeros(num_pieces, b, h, Q.shape[2], d).to(self.device)
-            scores = torch.zeros(num_pieces, b, h, Q.shape[2], K_div.shape[3]).to(self.device)
             attn = torch.zeros(num_pieces, b, h, Q.shape[2], K_div.shape[3]).to(self.device)
 
             if attn_mask is not None:
@@ -85,15 +84,13 @@ class ScaledDotProductAttention(nn.Module):
             for p in range(K_div.shape[0]):
                 if p == 0:
                     tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, K_div[p]) / np.sqrt(self.d_k)).clone()
-                    scores[p] = tmp
                 else:
                     cntx_tmp = cntx[p - 1].clone()
                     tmp = (torch.einsum('bhqd,bhkd->bhqk', Q,  self.combine(torch.stack((K_div[p], cntx_tmp)).
                                                         permute(1, 2, 3, 4, 0)).squeeze(-1).clone()/
                                        np.sqrt(self.d_k))).clone()
-                    scores[p] = tmp
                 if attn_mask is not None:
-                    scores[p].masked_fill_(attn_mask, -1e9)
+                    tmp.masked_fill_(attn_mask, -1e9)
 
                 attn_tmp = (self.softmax(tmp)).clone()
                 attn[p] = attn_tmp
