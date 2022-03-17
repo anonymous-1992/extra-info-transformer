@@ -43,9 +43,9 @@ class ScaledDotProductAttention(nn.Module):
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
-        self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel)
+        self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
         self.padding = kernel
-        self.combine = nn.Linear(2, 1)
+        self.combine = nn.Linear(2, 1).to(device)
 
     def forward(self, Q, K, V, attn_mask, self_attn=True):
 
