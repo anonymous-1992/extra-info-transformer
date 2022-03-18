@@ -53,9 +53,8 @@ torch.autograd.set_detect_anomaly(True)
 def train(args, model, train_en, train_de, train_y,
           test_en, test_de, test_y, epoch, e, val_loss,
           val_inner_loss, optimizer, train_loss_list,
-          config, config_num, best_config, criterion, path):
+          config, config_num, best_config, criterion, path, stop):
 
-    stop = False
     try:
         model.train()
         total_loss = 0
@@ -201,6 +200,7 @@ def main():
 
         val_inner_loss = 1e10
         train_loss_list = list()
+        stop = False
 
         for epoch in range(epoch_start, params['num_epochs'], 1):
 
@@ -208,7 +208,7 @@ def main():
                 train(args, model, train_en_p.to(device), train_de_p.to(device),
                       train_y_p.to(device), valid_en_p.to(device), valid_de_p.to(device),
                       valid_y_p.to(device), epoch, params['num_epochs'], val_loss, val_inner_loss,
-                      optim, train_loss_list, conf, i, best_config, criterion, path)
+                      optim, train_loss_list, conf, i, best_config, criterion, path, stop)
 
             if stop:
                 break
