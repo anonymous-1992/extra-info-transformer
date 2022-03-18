@@ -117,13 +117,13 @@ def main():
     parser = argparse.ArgumentParser(description="train context-aware attention")
     parser.add_argument("--name", type=str, default='extra-info-attn')
     parser.add_argument("--exp_name", type=str, default='electricity')
-    parser.add_argument("--seed", type=int, default=21)
+    parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--cuda", type=str, default='cuda:0')
     args = parser.parse_args()
     config_file = dict()
 
-    np.random.seed(21)
-    random.seed(21)
+    np.random.seed(1234)
+    random.seed(1234)
 
     torch.manual_seed(args.seed)
 
