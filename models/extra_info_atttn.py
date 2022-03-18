@@ -87,9 +87,9 @@ class ScaledDotProductAttention(nn.Module):
                     tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, K_div[p]) / np.sqrt(self.d_k)).clone()
                 else:
                     cntx_tmp = cntx[p - 1].clone()
-                    tmp = (torch.einsum('bhqd,bhkd->bhqk', Q,  self.combine(torch.stack((K_div[p], cntx_tmp)).
-                                                        permute(1, 2, 3, 4, 0)).squeeze(-1).clone()/
-                                       np.sqrt(self.d_k))).clone()
+                    combine_info = (self.combine(torch.stack((K_div[p], cntx_tmp)).
+                                                        permute(1, 2, 3, 4, 0)).squeeze(-1)).clone()
+                    tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, combine_info) / np.sqrt(self.d_k)).clone()
                 if attn_mask is not None:
                     tmp.masked_fill_(attn_mask, -1e9)
 
