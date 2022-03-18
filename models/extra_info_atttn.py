@@ -65,13 +65,14 @@ class ScaledDotProductAttention(nn.Module):
             K_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
             K = K.permute(2, 0, 1, 3)
             start = 0
-            for j in range(0, num_pieces):
-                while start+l_k < K.shape[0]:
-                    K_div[j] = K[start:start+l_k]
-                    start += l_k
-                remain = start+l_k - K.shape[0]
-                if remain > 0:
-                    K_div[j, 0:remain] = K[-remain:]
+            j = 0
+            while start+l_k < K.shape[0]:
+                K_div[j] = K[start:start+l_k]
+                start += l_k
+                j += 1
+            remain = start+l_k - K.shape[0]
+            if remain > 0:
+                K_div[j, 0:remain] = K[-remain:]
 
             K_div = K_div.permute(0, 2, 3, 1, 4)
             cntx = torch.zeros(num_pieces, b, h, Q.shape[2], d).to(self.device)

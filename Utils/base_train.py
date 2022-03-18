@@ -32,20 +32,20 @@ def batching(batch_size, x_en, x_de, y_t, test_id):
     X_de = torch.zeros(batch_n, batch_size, x_de.shape[1], x_de.shape[2])
     Y_t = torch.zeros(batch_n, batch_size, y_t.shape[1], y_t.shape[2])
     tst_id = np.empty((batch_n, batch_size, test_id.shape[1], x_en.shape[2]), dtype=object)
-
-    for i in range(batch_n):
-        while start+batch_size < x_en.shape[0]:
-            X_en[i, :, :, :] = x_en[start:start+batch_size, :, :]
-            X_de[i, :, :, :] = x_de[start:start+batch_size, :, :]
-            Y_t[i, :, :, :] = y_t[start:start+batch_size, :, :]
-            tst_id[i, :, :, :] = test_id[start:start+batch_size, :, :]
-        remain = start+batch_size - x_en.shape[0]
-        if remain > 0:
-            X_en[i, :, :, :] = x_en[-remain:, :, :]
-            X_de[i, :, :, :] = x_de[-remain:, :, :]
-            Y_t[i, :, :, :] = y_t[-remain:, :, :]
-            tst_id[i, :, :, :] = test_id[-remain:, :, :]
+    i = 0
+    while start+batch_size < x_en.shape[0]:
+        X_en[i, :, :, :] = x_en[start:start+batch_size, :, :]
+        X_de[i, :, :, :] = x_de[start:start+batch_size, :, :]
+        Y_t[i, :, :, :] = y_t[start:start+batch_size, :, :]
+        tst_id[i, :, :, :] = test_id[start:start+batch_size, :, :]
         start += batch_size
+        i += 1
+    remain = start+batch_size - x_en.shape[0]
+    if remain > 0:
+        X_en[i, :, :, :] = x_en[-remain:, :, :]
+        X_de[i, :, :, :] = x_de[-remain:, :, :]
+        Y_t[i, :, :, :] = y_t[-remain:, :, :]
+        tst_id[i, :, :, :] = test_id[-remain:, :, :]
 
     return X_en, X_de, Y_t, tst_id
 
