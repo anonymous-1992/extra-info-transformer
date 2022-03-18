@@ -48,7 +48,7 @@ class ScaledDotProductAttention(nn.Module):
         self.combine = nn.Linear(2, 1).to(device)
         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, Q, K, V, attn_mask, self_attn=True):
+    def forward(self, Q, K, V, attn_mask, self_attn=False):
 
         if self_attn:
             b, h, l_k, d = K.shape
