@@ -19,23 +19,32 @@ import torch
 import numpy as np
 from Utils import utils, base
 import pandas as pd
+import math
+
 InputTypes = base.InputTypes
 
 
 def batching(batch_size, x_en, x_de, y_t, test_id):
 
-    batch_n = int(x_en.shape[0] / batch_size)
-    start = x_en.shape[0] % batch_n
+    batch_n = math.ceil(x_en.shape[0] / batch_size)
+    start = 0
     X_en = torch.zeros(batch_n, batch_size, x_en.shape[1], x_en.shape[2])
     X_de = torch.zeros(batch_n, batch_size, x_de.shape[1], x_de.shape[2])
     Y_t = torch.zeros(batch_n, batch_size, y_t.shape[1], y_t.shape[2])
     tst_id = np.empty((batch_n, batch_size, test_id.shape[1], x_en.shape[2]), dtype=object)
 
     for i in range(batch_n):
-        X_en[i, :, :, :] = x_en[start:start+batch_size, :, :]
-        X_de[i, :, :, :] = x_de[start:start+batch_size, :, :]
-        Y_t[i, :, :, :] = y_t[start:start+batch_size, :, :]
-        tst_id[i, :, :, :] = test_id[start:start+batch_size, :, :]
+        while start+batch_size < x_en.shape[0]:
+            X_en[i, :, :, :] = x_en[start:start+batch_size, :, :]
+            X_de[i, :, :, :] = x_de[start:start+batch_size, :, :]
+            Y_t[i, :, :, :] = y_t[start:start+batch_size, :, :]
+            tst_id[i, :, :, :] = test_id[start:start+batch_size, :, :]
+        remain = start+batch_size - x_en.shape[0]
+        if remain > 0:
+            X_en[i, :, :, :] = x_en[-remain:, :, :]
+            X_de[i, :, :, :] = x_de[-remain:, :, :]
+            Y_t[i, :, :, :] = y_t[-remain:, :, :]
+            tst_id[i, :, :, :] = test_id[-remain:, :, :]
         start += batch_size
 
     return X_en, X_de, Y_t, tst_id
@@ -71,15 +80,15 @@ def batch_sampled_data(data, max_samples, time_steps, num_encoder_steps, column_
 
             split_data_map[identifier] = df
 
+    def takeSecond(elem):
+        return elem[1]
+
     if 0 < max_samples < len(valid_sampling_locations):
-        '''ranges = [
+        ranges = [
           valid_sampling_locations[i] for i in np.random.choice(
               len(valid_sampling_locations), max_samples, replace=False)
-        ]'''
-        # choose samples in order
-        ranges = [
-            valid_sampling_locations[i] for i in np.arange(0, max_samples)
         ]
+        ranges.sort(key=takeSecond)
 
     else:
         print('Max samples={} exceeds # available segments={}'.format(
