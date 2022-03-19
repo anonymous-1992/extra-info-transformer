@@ -111,7 +111,7 @@ class ScaledDotProductAttention(nn.Module):
         '''
         #K = torch.einsum('bhkdb, bhkdb->bhkd', K, K) / np.sqrt(self.d_k)
         K_shared = self.w_batch(K_shared).squeeze(-1)
-        scores = torch.zeros(2, b, h, Q.shape[2], l_k)
+        scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
         scores[0] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
         scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K_shared) / np.sqrt(self.d_k)
 
