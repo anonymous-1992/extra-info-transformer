@@ -46,7 +46,7 @@ class ScaledDotProductAttention(nn.Module):
         '''self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
         self.padding = kernel'''
         #self.combine = nn.Linear(2, 1).to(device)
-        #self.w_batch = nn.Parameter(torch.rand(b_size, b_size), requires_grad=True).to(self.device)
+        self.w_batch = nn.Linear(b_size, 1)
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, Q, K, V, attn_mask, self_attn=True):
@@ -62,10 +62,10 @@ class ScaledDotProductAttention(nn.Module):
         K = K.unfold(-1, b, 1)
         K = K.reshape(b, h, b*k_length, d)
 '''
-        K = K.permute(1, 2, 3, 0)
-        K = F.pad(K, pad=(b - 1, 0, 0, 0))
-        K = K.unfold(-1, b, 1)
-        K = K.permute(3, 0, 1, 2, 4)
+        K_shared = K.permute(1, 2, 3, 0)
+        K_shared = F.pad(K_shared, pad=(b - 1, 0, 0, 0))
+        K_shared = K_shared.unfold(-1, b, 1)
+        K_shared = K_shared.permute(3, 0, 1, 2, 4)
         #K_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
         #K = K.permute(2, 0, 1, 3)
 
@@ -110,18 +110,21 @@ class ScaledDotProductAttention(nn.Module):
     else:
         '''
         #K = torch.einsum('bhkdb, bhkdb->bhkd', K, K) / np.sqrt(self.d_k)
-        #K = torch.einsum('hkdb, bb -> bhkd', K, self.w_batch)
-        scores = torch.einsum('bhqd,bhkdn->bhqkn', Q, K) / np.sqrt(self.d_k)
-        scores = torch.max(scores, -1)[0]
+        K_shared = self.w_batch(K_shared).squeeze(-1)
+        scores = torch.zeros(2, b, h, Q.shape[2], l_k)
+        scores[0] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+        scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K_shared) / np.sqrt(self.d_k)
 
         if attn_mask is not None:
             attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
             attn_mask = attn_mask.to(self.device)
+            attn_mask = attn_mask.unsqueeze(0).repeat(2, 1, 1, 1, 1)
             '''attn_mask = attn_mask[:, :, :, :k_length].unsqueeze(-1).repeat(1, 1, 1, 1, b)
             attn_mask = attn_mask.reshape(b, h, -1, b*k_length)'''
             scores.masked_fill_(attn_mask, -1e9)
 
         attn = self.softmax(scores)
+        attn = torch.max(attn, 0)[0]
         #attn = attn.reshape(b, h, -1, b, k_length)
         #attn = torch.max(attn, 3)[0]
         #attn_f = torch.zeros(b, h, Q.shape[2], l_k).to(self.device)
