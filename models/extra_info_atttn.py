@@ -45,7 +45,7 @@ class ScaledDotProductAttention(nn.Module):
         self.d_k = d_k
         self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
         self.padding = kernel
-        self.combine = nn.Linear(2, 1).to(device)
+        #self.combine = nn.Linear(2, 1).to(device)
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, Q, K, V, attn_mask, self_attn=True):
@@ -118,7 +118,7 @@ class ScaledDotProductAttention(nn.Module):
         attn = self.softmax(scores)
         attn = attn.reshape(b, h, -1, b, k_length)
         attn = torch.max(attn, 3)[0]
-        attn_f = torch.zeros(b, h, Q.shape[2], l_k)
+        attn_f = torch.zeros(b, h, Q.shape[2], l_k).to(self.device)
         ind = int(l_k / math.log2(l_k))
         attn_f[:, :, :, 0::ind] = attn
         context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
