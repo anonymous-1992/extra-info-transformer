@@ -42,10 +42,10 @@ def batching(batch_size, x_en, x_de, y_t, test_id):
         i += 1
     remain = start+batch_size - x_en.shape[0]
     if remain > 0:
-        X_en[i, :, :, :] = x_en[-remain:, :, :]
-        X_de[i, :, :, :] = x_de[-remain:, :, :]
-        Y_t[i, :, :, :] = y_t[-remain:, :, :]
-        tst_id[i, :, :, :] = test_id[-remain:, :, :]
+        X_en[i, :, :, :remain] = x_en[-remain:, :, :]
+        X_de[i, :, :, :remain] = x_de[-remain:, :, :]
+        Y_t[i, :, :, :remain] = y_t[-remain:, :, :]
+        tst_id[i, :, :, :remain] = test_id[-remain:, :, :]
 
     return X_en, X_de, Y_t, tst_id
 
