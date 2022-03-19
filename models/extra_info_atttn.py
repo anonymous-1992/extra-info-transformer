@@ -110,7 +110,7 @@ class ScaledDotProductAttention(nn.Module):
                 attn_mask = attn_mask.to(self.device)
                 scores.masked_fill_(attn_mask, -1e9)
 
-            attn = nn.Softmax(dim=-1)(scores)
+            attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
         return context, attn
 
