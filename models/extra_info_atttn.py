@@ -51,7 +51,6 @@ class ScaledDotProductAttention(nn.Module):
 
     def forward(self, Q, K, V, attn_mask, self_attn=True):
 
-
         b, h, l_k, d = K.shape
 
         ''''b = K.shape[0]
@@ -63,10 +62,10 @@ class ScaledDotProductAttention(nn.Module):
         K = K.unfold(-1, b, 1)
         K = K.reshape(b, h, b*k_length, d)
 '''
-        '''K = K.permute(1, 2, 3, 0)
+        K = K.permute(1, 2, 3, 0)
         K = F.pad(K, pad=(b - 1, 0, 0, 0))
         K = K.unfold(-1, b, 1)
-        K = K.permute(3, 0, 1, 2, 4)'''
+        K = K.permute(3, 0, 1, 2, 4)
         #K_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
         #K = K.permute(2, 0, 1, 3)
 
@@ -88,7 +87,6 @@ class ScaledDotProductAttention(nn.Module):
             attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
             attn_mask = attn_mask.to(self.device)
 
-        
         for p in range(K_div.shape[0]):
             if p == 0:
                 tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, K_div[p]) / np.sqrt(self.d_k)).clone()
@@ -113,7 +111,8 @@ class ScaledDotProductAttention(nn.Module):
         '''
         #K = torch.einsum('bhkdb, bhkdb->bhkd', K, K) / np.sqrt(self.d_k)
         #K = torch.einsum('hkdb, bb -> bhkd', K, self.w_batch)
-        scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+        scores = torch.einsum('bhqd,bhkdn->bhqkn', Q, K) / np.sqrt(self.d_k)
+        scores = torch.max(scores, -1)[0]
 
         if attn_mask is not None:
             attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
