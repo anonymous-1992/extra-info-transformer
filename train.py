@@ -13,6 +13,7 @@ import pandas as pd
 from data.data_loader import ExperimentConfig
 from Utils.base_train import batching, batch_sampled_data
 import time
+from scipy.ndimage import gaussian_filter
 
 class NoamOpt:
 
@@ -48,6 +49,7 @@ class NoamOpt:
 
 
 torch.autograd.set_detect_anomaly(True)
+L1Loss = nn.L1Loss()
 
 
 def train(args, model, train_en, train_de, train_y,
@@ -55,6 +57,7 @@ def train(args, model, train_en, train_de, train_y,
           val_inner_loss, optimizer, train_loss_list,
           config, config_num, best_config, criterion, path, stop):
 
+    lam = 0.1
     try:
         model.train()
         total_loss = 0
@@ -62,7 +65,8 @@ def train(args, model, train_en, train_de, train_y,
         for batch_id in range(train_en.shape[0]):
             output = \
                 model(train_en[batch_id], train_de[batch_id])
-            loss = criterion(output, train_y[batch_id])
+            smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=1))
+            loss = criterion(output, train_y[batch_id]) + lam * L1Loss(output, smooth_output)
             train_loss_list.append(loss.item())
             total_loss += loss.item()
             optimizer.zero_grad()
