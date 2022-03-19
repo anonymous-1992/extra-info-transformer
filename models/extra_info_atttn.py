@@ -48,71 +48,81 @@ class ScaledDotProductAttention(nn.Module):
         self.combine = nn.Linear(2, 1).to(device)
         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, Q, K, V, attn_mask, self_attn=False):
+    def forward(self, Q, K, V, attn_mask, self_attn=True):
 
-        if self_attn:
-            b, h, l_k, d = K.shape
 
-            b = K.shape[0]
-            K = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding - 1, 0, 0, 0))
-            K = self.conv1d(K).reshape(-1, h * d, b)
-            k_length = K.shape[0]
-            num_pieces = math.ceil(b * k_length / l_k)
-            K = F.pad(K, pad=(b - 1, 0, 0, 0))
-            K = K.unfold(-1, b, 1)
-            K = K.reshape(b, h, b*k_length, d)
+        b, h, l_k, d = K.shape
 
-            K_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
-            K = K.permute(2, 0, 1, 3)
-            start = 0
-            j = 0
-            while start+l_k < K.shape[0]:
-                K_div[j] = K[start:start+l_k]
-                start += l_k
-                j += 1
-            remain = start+l_k - K.shape[0]
-            if remain > 0:
-                K_div[j, 0:remain] = K[-remain:]
+        b = K.shape[0]
+        K = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding - 1, 0, 0, 0))
+        K = self.conv1d(K).reshape(-1, h * d, b)
+        k_length = K.shape[0]
+        #num_pieces = math.ceil(b * k_length / l_k)
+        K = F.pad(K, pad=(b - 1, 0, 0, 0))
+        K = K.unfold(-1, b, 1)
+        K = K.reshape(b, h, b*k_length, d)
 
-            K_div = K_div.permute(0, 2, 3, 1, 4)
-            cntx = torch.zeros(num_pieces, b, h, Q.shape[2], d).to(self.device)
-            attn = torch.zeros(num_pieces, b, h, Q.shape[2], K_div.shape[3]).to(self.device)
+        #K_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
+        #K = K.permute(2, 0, 1, 3)
 
+        '''start = 0
+        j = 0
+        while start+l_k < K.shape[0]:
+            K_div[j] = K[start:start+l_k]
+            start += l_k
+            j += 1
+        remain = start+l_k - K.shape[0]
+        if remain > 0:
+            K_div[j, 0:remain] = K[-remain:]
+
+        K_div = K_div.permute(0, 2, 3, 1, 4)
+        cntx = torch.zeros(num_pieces, b, h, Q.shape[2], d).to(self.device)
+        attn = torch.zeros(num_pieces, b, h, Q.shape[2], K_div.shape[3]).to(self.device)'''
+
+        '''if attn_mask is not None:
+            attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
+            attn_mask = attn_mask.to(self.device)
+
+        
+        for p in range(K_div.shape[0]):
+            if p == 0:
+                tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, K_div[p]) / np.sqrt(self.d_k)).clone()
+            else:
+                cntx_tmp = cntx[p - 1].clone()
+                combine_info = (self.combine(torch.stack((K_div[p], cntx_tmp)).
+                                                    permute(1, 2, 3, 4, 0)).squeeze(-1)).clone()
+                tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, combine_info) / np.sqrt(self.d_k)).clone()
             if attn_mask is not None:
-                attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-                attn_mask = attn_mask.to(self.device)
+                tmp.masked_fill_(attn_mask, -1e9)
 
-            for p in range(K_div.shape[0]):
-                if p == 0:
-                    tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, K_div[p]) / np.sqrt(self.d_k)).clone()
-                else:
-                    cntx_tmp = cntx[p - 1].clone()
-                    combine_info = (self.combine(torch.stack((K_div[p], cntx_tmp)).
-                                                        permute(1, 2, 3, 4, 0)).squeeze(-1)).clone()
-                    tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, combine_info) / np.sqrt(self.d_k)).clone()
-                if attn_mask is not None:
-                    tmp.masked_fill_(attn_mask, -1e9)
+            attn_tmp = (self.softmax(tmp)).clone()
+            attn[p] = attn_tmp
+            cntx[p] = torch.einsum('bhqk,bhkd->bhqd', attn_tmp, V)
 
-                attn_tmp = (self.softmax(tmp)).clone()
-                attn[p] = attn_tmp
-                cntx[p] = torch.einsum('bhqk,bhkd->bhqd', attn_tmp, V)
+        attn_f = torch.max(attn, 0)[0]
+        context_f = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
 
-            attn_f = torch.max(attn, 0)[0]
-            context_f = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
+        return context_f, attn_f
 
-            return context_f, attn_f
+    else:
+        '''
+        scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
-        else:
-            scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+        if attn_mask is not None:
+            attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
+            attn_mask = attn_mask.to(self.device)
+            attn_mask = attn_mask[:, :, :, :k_length].unsqueeze(-1).repeat(1, 1, 1, 1, b)
+            attn_mask = attn_mask.reshape(b, h, -1, b*k_length)
+            scores.masked_fill_(attn_mask, -1e9)
 
-            if attn_mask is not None:
-                attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-                attn_mask = attn_mask.to(self.device)
-                scores.masked_fill_(attn_mask, -1e9)
-
-            attn = self.softmax(scores)
-            context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
-        return context, attn
+        attn = self.softmax(scores)
+        attn = attn.reshape(b, h, -1, b, k_length)
+        attn = torch.max(attn, 3)[0]
+        attn_f = torch.zeros(b, h, Q.shape[2], l_k)
+        ind = int(l_k / math.log2(l_k))
+        attn_f[:, :, :, 0::ind] = attn
+        context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
+        return context, attn_f
 
 
 class MultiHeadAttention(nn.Module):
@@ -133,7 +143,7 @@ class MultiHeadAttention(nn.Module):
         self.d_v = d_v
         self.n_heads = n_heads
 
-    def forward(self, Q, K, V, attn_mask, self_attn=False):
+    def forward(self, Q, K, V, attn_mask, self_attn=True):
 
         batch_size = Q.shape[0]
         q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
