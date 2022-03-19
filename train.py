@@ -55,7 +55,7 @@ L1Loss = nn.L1Loss()
 def train(args, model, train_en, train_de, train_y,
           test_en, test_de, test_y, epoch, e, val_loss,
           val_inner_loss, optimizer, train_loss_list,
-          config, config_num, best_config, criterion, path, stop):
+          config, config_num, best_config, criterion, path, stop, device):
 
     lam = 0.1
     try:
@@ -65,7 +65,8 @@ def train(args, model, train_en, train_de, train_y,
         for batch_id in range(train_en.shape[0]):
             output = \
                 model(train_en[batch_id], train_de[batch_id])
-            smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=1))
+            smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=1))\
+                .to(device)
             loss = criterion(output, train_y[batch_id]) + lam * L1Loss(output, smooth_output)
             train_loss_list.append(loss.item())
             total_loss += loss.item()
@@ -213,7 +214,7 @@ def main():
                 train(args, model, train_en_p.to(device), train_de_p.to(device),
                       train_y_p.to(device), valid_en_p.to(device), valid_de_p.to(device),
                       valid_y_p.to(device), epoch, e, val_loss, val_inner_loss,
-                      optim, train_loss_list, conf, i, best_config, criterion, path, stop)
+                      optim, train_loss_list, conf, i, best_config, criterion, path, stop, device)
 
             if stop:
                 break
