@@ -38,22 +38,23 @@ class PositionalEncoding(nn.Module):
 
 class ScaledDotProductAttention(nn.Module):
 
-    def __init__(self, d_k, h, kernel, device):
+    def __init__(self, d_k, h, kernel, device, b_size):
 
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
-        self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
-        self.padding = kernel
+        '''self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
+        self.padding = kernel'''
         #self.combine = nn.Linear(2, 1).to(device)
+        self.w_batch = nn.Parameter(torch.rand(b_size, b_size), requires_grad=True).to(self.device)
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, Q, K, V, attn_mask, self_attn=True):
 
 
-        b, h, l_k, d = K.shape
+        #b, h, l_k, d = K.shape
 
-        b = K.shape[0]
+        ''''b = K.shape[0]
         K = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding - 1, 0, 0, 0))
         K = self.conv1d(K).reshape(-1, h * d, b)
         k_length = K.shape[0]
@@ -61,7 +62,7 @@ class ScaledDotProductAttention(nn.Module):
         K = F.pad(K, pad=(b - 1, 0, 0, 0))
         K = K.unfold(-1, b, 1)
         K = K.reshape(b, h, b*k_length, d)
-
+'''
         #K_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
         #K = K.permute(2, 0, 1, 3)
 
@@ -106,23 +107,26 @@ class ScaledDotProductAttention(nn.Module):
 
     else:
         '''
+        K = K.permute(1, 2, 3, 0)
+        K = torch.einsum('hkdb, bb -> bhkd', K, self.w_batch)
         scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
         if attn_mask is not None:
             attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
             attn_mask = attn_mask.to(self.device)
-            attn_mask = attn_mask[:, :, :, :k_length].unsqueeze(-1).repeat(1, 1, 1, 1, b)
-            attn_mask = attn_mask.reshape(b, h, -1, b*k_length)
+            '''attn_mask = attn_mask[:, :, :, :k_length].unsqueeze(-1).repeat(1, 1, 1, 1, b)
+            attn_mask = attn_mask.reshape(b, h, -1, b*k_length)'''
             scores.masked_fill_(attn_mask, -1e9)
 
         attn = self.softmax(scores)
-        attn = attn.reshape(b, h, -1, b, k_length)
-        attn = torch.max(attn, 3)[0]
-        attn_f = torch.zeros(b, h, Q.shape[2], l_k).to(self.device)
-        ind = int(l_k / math.log2(l_k))
-        attn_f[:, :, :, 0::ind] = attn
-        context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
-        return context, attn_f
+        #attn = attn.reshape(b, h, -1, b, k_length)
+        #attn = torch.max(attn, 3)[0]
+        #attn_f = torch.zeros(b, h, Q.shape[2], l_k).to(self.device)
+        #ind = int(l_k / math.log2(l_k))
+        #attn_f[:, :, :, 0::ind] = attn
+
+        context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
+        return context, attn
 
 
 class MultiHeadAttention(nn.Module):
@@ -152,7 +156,8 @@ class MultiHeadAttention(nn.Module):
         kernel = int(K.shape[1] / (math.log2(K.shape[1])))
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
-        context, attn = ScaledDotProductAttention(d_k=self.d_k, h=self.n_heads, kernel=kernel, device=self.device)(
+        context, attn = ScaledDotProductAttention(d_k=self.d_k, h=self.n_heads,
+                                                  kernel=kernel, device=self.device, b_size=batch_size)(
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask, self_attn=self_attn)
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         output = self.fc(context)
