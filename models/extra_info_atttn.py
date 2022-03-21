@@ -68,7 +68,6 @@ class ScaledDotProductAttention(nn.Module):
             K_shared = K_shared.permute(3, 0, 1, 2, 4)
 
             K_p = self.w_batch(K_shared).squeeze(-1)
-            del K_shared
             scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
             scores[0] = torch.einsum('bhqd,bhkd->bhqk', Q, K_p) / np.sqrt(self.d_k)
             scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
@@ -105,7 +104,7 @@ class MultiHeadAttention(nn.Module):
         self.n_heads = n_heads
         self.attn_type = attn_type
 
-    def forward(self, Q, K, V, attn_mask, self_attn=True):
+    def forward(self, Q, K, V, attn_mask):
 
         batch_size = Q.shape[0]
         q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
