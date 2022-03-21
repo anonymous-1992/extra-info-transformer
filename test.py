@@ -34,7 +34,7 @@ def evaluate(config, args, test_en, test_de, test_y, test_id, formatter, path, d
                  d_k=d_k, d_v=d_k, n_heads=n_heads,
                  n_layers=model_params['stack_size'], src_pad_index=0,
                  tgt_pad_index=0, device=device,
-                 context_lengths=model_params['context_lengths']).to(device)
+                 attn_type=args.attn_type).to(device)
 
     checkpoint = torch.load(os.path.join(path, "{}_{}".format(args.name, args.seed)))
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -71,16 +71,17 @@ def main():
     parser = argparse.ArgumentParser(description="train context-aware attention")
     parser.add_argument("--name", type=str, default='context-aware-attn')
     parser.add_argument("--exp_name", type=str, default='watershed')
-    parser.add_argument("--seed", type=int, default=21)
+    parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--cuda", type=str, default='cuda:0')
+    parser.add_argument("--attn_type", type=str, default='extra_info_attn')
     args = parser.parse_args()
 
     config = ExperimentConfig(args.exp_name)
     formatter = config.make_data_formatter()
     error_file = dict()
 
-    np.random.seed(21)
-    random.seed(21)
+    np.random.seed(1234)
+    random.seed(1234)
 
     torch.manual_seed(args.seed)
 

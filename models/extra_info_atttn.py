@@ -43,7 +43,8 @@ class ScaledDotProductAttention(nn.Module):
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
-        self.w_batch = nn.Linear(b_size, 1).to(device)
+        self.n_pieces = math.ceil(b_size / math.log2(b_size))
+        self.w_batch = nn.Linear(self.n_pieces, 1).to(device)
         self.softmax = nn.Softmax(dim=-1)
         self.attn_type = attn_type
 
@@ -63,8 +64,8 @@ class ScaledDotProductAttention(nn.Module):
             b, h, l_k, d = K.shape
 
             K_shared = K.permute(1, 2, 3, 0)
-            K_shared = F.pad(K_shared, pad=(b - 1, 0, 0, 0))
-            K_shared = K_shared.unfold(-1, b, 1)
+            K_shared = F.pad(K_shared, pad=(self.n_pieces - 1, 0, 0, 0))
+            K_shared = K_shared.unfold(-1, self.n_pieces, 1)
             K_shared = K_shared.permute(3, 0, 1, 2, 4)
 
             K_p = self.w_batch(K_shared).squeeze(-1)
