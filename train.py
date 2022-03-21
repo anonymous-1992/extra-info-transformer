@@ -124,6 +124,7 @@ def main():
     parser.add_argument("--exp_name", type=str, default='electricity')
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--cuda", type=str, default='cuda:0')
+    parser.add_argument("--attn_type", type=str, default='extra_info_attn')
     args = parser.parse_args()
     config_file = dict()
 
@@ -196,7 +197,7 @@ def main():
                      d_ff=d_model*4,
                      d_k=d_k, d_v=d_k, n_heads=n_heads,
                      n_layers=model_params['stack_size'], src_pad_index=0,
-                     tgt_pad_index=0, device=device)
+                     tgt_pad_index=0, device=device, attn_type=args.attn_type)
         model.to(device)
 
         optim = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)

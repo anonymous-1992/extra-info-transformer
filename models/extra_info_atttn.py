@@ -38,106 +38,57 @@ class PositionalEncoding(nn.Module):
 
 class ScaledDotProductAttention(nn.Module):
 
-    def __init__(self, d_k, h, kernel, device, b_size):
+    def __init__(self, d_k, device, b_size, attn_type):
 
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
-        '''self.conv1d = nn.Conv1d(d_k*h, d_k*h, kernel_size=kernel, stride=kernel).to(device)
-        self.padding = kernel'''
-        #self.combine = nn.Linear(2, 1).to(device)
         self.w_batch = nn.Linear(b_size, 1).to(device)
         self.softmax = nn.Softmax(dim=-1)
+        self.attn_type = attn_type
 
-    def forward(self, Q, K, V, attn_mask, self_attn=True):
+    def forward(self, Q, K, V, attn_mask):
 
-        b, h, l_k, d = K.shape
-
-        ''''b = K.shape[0]
-        K = F.pad(K.reshape(b, h * d, l_k), pad=(self.padding - 1, 0, 0, 0))
-        K = self.conv1d(K).reshape(-1, h * d, b)
-        k_length = K.shape[0]
-        #num_pieces = math.ceil(b * k_length / l_k)
-        K = F.pad(K, pad=(b - 1, 0, 0, 0))
-        K = K.unfold(-1, b, 1)
-        K = K.reshape(b, h, b*k_length, d)
-'''
-        K_shared = K.permute(1, 2, 3, 0)
-        K_shared = F.pad(K_shared, pad=(b - 1, 0, 0, 0))
-        K_shared = K_shared.unfold(-1, b, 1)
-        K_shared = K_shared.permute(3, 0, 1, 2, 4)
-        #K_div = torch.zeros(num_pieces, l_k, b, h, d).to(self.device)
-        #K = K.permute(2, 0, 1, 3)
-
-        '''start = 0
-        j = 0
-        while start+l_k < K.shape[0]:
-            K_div[j] = K[start:start+l_k]
-            start += l_k
-            j += 1
-        remain = start+l_k - K.shape[0]
-        if remain > 0:
-            K_div[j, 0:remain] = K[-remain:]
-
-        K_div = K_div.permute(0, 2, 3, 1, 4)
-        cntx = torch.zeros(num_pieces, b, h, Q.shape[2], d).to(self.device)
-        attn = torch.zeros(num_pieces, b, h, Q.shape[2], K_div.shape[3]).to(self.device)'''
-
-        '''if attn_mask is not None:
-            attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-            attn_mask = attn_mask.to(self.device)
-
-        for p in range(K_div.shape[0]):
-            if p == 0:
-                tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, K_div[p]) / np.sqrt(self.d_k)).clone()
-            else:
-                cntx_tmp = cntx[p - 1].clone()
-                combine_info = (self.combine(torch.stack((K_div[p], cntx_tmp)).
-                                                    permute(1, 2, 3, 4, 0)).squeeze(-1)).clone()
-                tmp = (torch.einsum('bhqd,bhkd->bhqk', Q, combine_info) / np.sqrt(self.d_k)).clone()
+        if self.attn_type == "basic_attn":
+            scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             if attn_mask is not None:
-                tmp.masked_fill_(attn_mask, -1e9)
+                attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
+                attn_mask = attn_mask.to(self.device)
+                scores.masked_fill_(attn_mask, -1e9)
+            attn = self.softmax(scores)
+            context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
-            attn_tmp = (self.softmax(tmp)).clone()
-            attn[p] = attn_tmp
-            cntx[p] = torch.einsum('bhqk,bhkd->bhqd', attn_tmp, V)
+        elif self.attn_type == "extra_info_attn":
 
-        attn_f = torch.max(attn, 0)[0]
-        context_f = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
+            b, h, l_k, d = K.shape
 
-        return context_f, attn_f
+            K_shared = K.permute(1, 2, 3, 0)
+            K_shared = F.pad(K_shared, pad=(b - 1, 0, 0, 0))
+            K_shared = K_shared.unfold(-1, b, 1)
+            K_shared = K_shared.permute(3, 0, 1, 2, 4)
 
-    else:
-        '''
-        #K = torch.einsum('bhkdb, bhkdb->bhkd', K, K) / np.sqrt(self.d_k)
-        K_shared = self.w_batch(K_shared).squeeze(-1)
-        scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
-        scores[0] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
-        scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K_shared) / np.sqrt(self.d_k)
+            K_p = self.w_batch(K_shared).squeeze(-1)
+            del K_shared
+            scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
+            scores[0] = torch.einsum('bhqd,bhkd->bhqk', Q, K_p) / np.sqrt(self.d_k)
+            scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
-        if attn_mask is not None:
-            attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-            attn_mask = attn_mask.to(self.device)
-            attn_mask = attn_mask.unsqueeze(0).repeat(2, 1, 1, 1, 1)
-            '''attn_mask = attn_mask[:, :, :, :k_length].unsqueeze(-1).repeat(1, 1, 1, 1, b)
-            attn_mask = attn_mask.reshape(b, h, -1, b*k_length)'''
-            scores.masked_fill_(attn_mask, -1e9)
+            if attn_mask is not None:
+                attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
+                attn_mask = attn_mask.to(self.device)
+                attn_mask = attn_mask.unsqueeze(0).repeat(2, 1, 1, 1, 1)
+                scores.masked_fill_(attn_mask, -1e9)
 
-        attn = self.softmax(scores)
-        attn = torch.max(attn, 0)[0]
-        #attn = attn.reshape(b, h, -1, b, k_length)
-        #attn = torch.max(attn, 3)[0]
-        #attn_f = torch.zeros(b, h, Q.shape[2], l_k).to(self.device)
-        #ind = int(l_k / math.log2(l_k))
-        #attn_f[:, :, :, 0::ind] = attn
+            attn = self.softmax(scores)
+            attn = torch.max(attn, 0)[0]
+            context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
-        context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
         return context, attn
 
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, d_model, d_k, d_v, n_heads, device):
+    def __init__(self, d_model, d_k, d_v, n_heads, device, attn_type):
 
         super(MultiHeadAttention, self).__init__()
 
@@ -152,6 +103,7 @@ class MultiHeadAttention(nn.Module):
         self.d_k = d_k
         self.d_v = d_v
         self.n_heads = n_heads
+        self.attn_type = attn_type
 
     def forward(self, Q, K, V, attn_mask, self_attn=True):
 
@@ -159,12 +111,11 @@ class MultiHeadAttention(nn.Module):
         q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         v_s = self.WV(V).view(batch_size, -1, self.n_heads, self.d_v).transpose(1, 2)
-        kernel = int(K.shape[1] / (math.log2(K.shape[1])))
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
-        context, attn = ScaledDotProductAttention(d_k=self.d_k, h=self.n_heads,
-                                                  kernel=kernel, device=self.device, b_size=batch_size)(
-            Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask, self_attn=self_attn)
+        context, attn = ScaledDotProductAttention(d_k=self.d_k, device=self.device,
+                                                  b_size=batch_size, attn_type=self.attn_type)(
+            Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         output = self.fc(context)
         return output, attn
@@ -185,11 +136,12 @@ class PoswiseFeedForwardNet(nn.Module):
 class EncoderLayer(nn.Module):
 
     def __init__(self, d_model, d_ff, d_k, d_v, n_heads,
-                 device):
+                 device, attn_type):
         super(EncoderLayer, self).__init__()
         self.enc_self_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
-            d_v=d_v, n_heads=n_heads, device=device)
+            d_v=d_v, n_heads=n_heads, device=device,
+            attn_type=attn_type)
         self.pos_ffn = PoswiseFeedForwardNet(
             d_model=d_model, d_ff=d_ff)
         self.layer_norm = nn.LayerNorm(d_model, elementwise_affine=False)
@@ -209,7 +161,7 @@ class EncoderLayer(nn.Module):
 class Encoder(nn.Module):
 
     def __init__(self, d_model, d_ff, d_k, d_v, n_heads,
-                 n_layers, pad_index, device):
+                 n_layers, pad_index, device, attn_type):
         super(Encoder, self).__init__()
         self.device = device
         self.pad_index = pad_index
@@ -222,7 +174,7 @@ class Encoder(nn.Module):
             encoder_layer = EncoderLayer(
                 d_model=d_model, d_ff=d_ff,
                 d_k=d_k, d_v=d_v, n_heads=n_heads,
-                device=device)
+                device=device, attn_type=attn_type)
             self.layers.append(encoder_layer)
         self.layers = nn.ModuleList(self.layers)
 
@@ -245,14 +197,14 @@ class Encoder(nn.Module):
 class DecoderLayer(nn.Module):
 
     def __init__(self, d_model, d_ff, d_k, d_v,
-                 n_heads, device):
+                 n_heads, device, attn_type):
         super(DecoderLayer, self).__init__()
         self.dec_self_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
-            d_v=d_v, n_heads=n_heads, device=device)
+            d_v=d_v, n_heads=n_heads, device=device, attn_type=attn_type)
         self.dec_enc_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
-            d_v=d_v, n_heads=n_heads, device=device)
+            d_v=d_v, n_heads=n_heads, device=device, attn_type=attn_type)
         self.pos_ffn = PoswiseFeedForwardNet(
             d_model=d_model, d_ff=d_ff)
         self.layer_norm = nn.LayerNorm(d_model, elementwise_affine=False)
@@ -274,7 +226,8 @@ class DecoderLayer(nn.Module):
 class Decoder(nn.Module):
 
     def __init__(self, d_model, d_ff, d_k, d_v,
-                 n_heads, n_layers, pad_index, device):
+                 n_heads, n_layers, pad_index,
+                 device, attn_type):
         super(Decoder, self).__init__()
         self.pad_index = pad_index
         self.device = device
@@ -287,7 +240,8 @@ class Decoder(nn.Module):
             decoder_layer = DecoderLayer(
                 d_model=d_model, d_ff=d_ff,
                 d_k=d_k, d_v=d_v,
-                n_heads=n_heads, device=device)
+                n_heads=n_heads, device=device,
+                attn_type=attn_type)
             self.layers.append(decoder_layer)
         self.layers = nn.ModuleList(self.layers)
         self.d_k = d_k
@@ -321,19 +275,19 @@ class Attn(nn.Module):
 
     def __init__(self, src_input_size, tgt_input_size, d_model,
                  d_ff, d_k, d_v, n_heads, n_layers, src_pad_index,
-                 tgt_pad_index, device):
+                 tgt_pad_index, device, attn_type):
         super(Attn, self).__init__()
 
         self.encoder = Encoder(
             d_model=d_model, d_ff=d_ff,
             d_k=d_k, d_v=d_v, n_heads=n_heads,
             n_layers=n_layers, pad_index=src_pad_index,
-            device=device)
+            device=device, attn_type=attn_type)
         self.decoder = Decoder(
             d_model=d_model, d_ff=d_ff,
             d_k=d_k, d_v=d_v, n_heads=n_heads,
             n_layers=1, pad_index=tgt_pad_index,
-            device=device)
+            device=device, attn_type=attn_type)
 
         self.enc_embedding = nn.Linear(src_input_size, d_model)
         self.dec_embedding = nn.Linear(tgt_input_size, d_model)
