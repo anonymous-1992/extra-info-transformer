@@ -215,7 +215,7 @@ class DecoderLayer(nn.Module):
                                                               attn_mask=dec_self_attn_mask)
         out = self.layer_norm(dec_inputs + out)
         out2, dec_enc_attn = self.dec_enc_attn(Q=out, K=enc_outputs, V=enc_outputs,
-                                               attn_mask=dec_enc_attn_mask, self_attn=False)
+                                               attn_mask=dec_enc_attn_mask)
         out2 = self.layer_norm(out + out2)
         out3 = self.pos_ffn(out2)
         out3 = self.layer_norm(out2 + out3)
