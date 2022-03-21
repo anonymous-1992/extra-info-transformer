@@ -43,7 +43,7 @@ class ScaledDotProductAttention(nn.Module):
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
-        self.n_pieces = math.ceil(b_size / math.log2(b_size))
+        self.n_pieces = math.ceil(math.log2(b_size))
         self.w_batch = nn.Linear(self.n_pieces, 1).to(device)
         self.softmax = nn.Softmax(dim=-1)
         self.attn_type = attn_type
@@ -61,26 +61,26 @@ class ScaledDotProductAttention(nn.Module):
 
         elif self.attn_type == "extra_info_attn":
 
-            b, h, l_k, d = K.shape
+            #b, h, l_k, d = K.shape
 
             K_shared = K.permute(1, 2, 3, 0)
             K_shared = F.pad(K_shared, pad=(self.n_pieces - 1, 0, 0, 0))
             K_shared = K_shared.unfold(-1, self.n_pieces, 1)
-            K_shared = K_shared.permute(3, 0, 1, 2, 4)
+            K_shared = K_shared.permute(3, 0, 4, 1, 2)
 
-            K_p = self.w_batch(K_shared).squeeze(-1)
-            scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
-            scores[0] = torch.einsum('bhqd,bhkd->bhqk', Q, K_p) / np.sqrt(self.d_k)
-            scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+            #K_p = self.w_batch(K_shared).squeeze(-1)
+            #scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
+            scores = torch.einsum('bhqd,bhnkd->bhqnk', Q, K_shared) / np.sqrt(self.d_k)
+            #scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
                 attn_mask = attn_mask.to(self.device)
-                attn_mask = attn_mask.unsqueeze(0).repeat(2, 1, 1, 1, 1)
+                attn_mask = attn_mask.unsqueeze(3).repeat(1, 1, 1, self.n_pieces, 1)
                 scores.masked_fill_(attn_mask, -1e9)
 
             attn = self.softmax(scores)
-            attn = torch.max(attn, 0)[0]
+            attn = torch.max(attn, 3)[0]
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
         return context, attn
