@@ -208,7 +208,7 @@ class ElectricityFormatter(GenericDataFormatter):
         """Returns default optimised model parameters."""
 
         model_params = {
-            'hidden_layer_size': [32],
+            'hidden_layer_size': [32, 16],
             'minibatch_size': [256],
             'num_heads': 8,
             'stack_size': 1,
