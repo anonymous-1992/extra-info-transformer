@@ -44,7 +44,7 @@ class ScaledDotProductAttention(nn.Module):
         self.device = device
         self.d_k = d_k
         self.n_pieces = math.ceil(math.log2(b_size))
-        #self.w_batch = nn.Linear(self.n_pieces, 1).to(device)
+        self.w_batch = nn.Linear(self.n_pieces, 1).to(device)
         self.softmax = nn.Softmax(dim=-1)
         self.attn_type = attn_type
 
@@ -67,11 +67,11 @@ class ScaledDotProductAttention(nn.Module):
             K_shared = F.pad(K_shared, pad=(self.n_pieces - 1, 0, 0, 0))
             K_shared = K_shared.unfold(-1, self.n_pieces, 1)
             K_shared = K_shared.permute(3, 0, 1, 4, 2)
-            k_score = torch.einsum('bhqnd, bhknd-> bhqk', K_shared, K_shared)
+            k_score = torch.einsum('bhknd, bhkmd-> bhknm', K_shared, K_shared)
             attn_k = self.softmax(k_score)
-            K = torch.einsum('bhqk,bhkd->bhqd', attn_k, K)
+            K = torch.einsum('bhknm,bhkmd->bhkdn', attn_k, K_shared)
+            K = self.w_batch(K).squeeze(-1)
 
-            #K_p = self.w_batch(K_shared).squeeze(-1)
             #scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
             #scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
