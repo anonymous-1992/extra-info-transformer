@@ -69,20 +69,20 @@ class ScaledDotProductAttention(nn.Module):
             K_shared = K_shared.permute(3, 0, 1, 4, 2)
             k_score = torch.einsum('bhknd, bhkmd-> bhknm', K_shared, K_shared)
             attn_k = self.softmax(k_score)
-            K = torch.einsum('bhknm,bhkmd->bhkd', attn_k, K_shared)
+            K = torch.einsum('bhknm,bhkmd->bhknd', attn_k, K_shared)
 
             #scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
-            scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+            scores = torch.einsum('bhqd,bhknd->bhqkn', Q, K) / np.sqrt(self.d_k)
             #scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
                 attn_mask = attn_mask.to(self.device)
-                #attn_mask = attn_mask.unsqueeze(3).repeat(1, 1, 1, self.n_pieces, 1)
+                attn_mask = attn_mask.unsqueeze(4).repeat(1, 1, 1, 1, self.n_pieces)
                 scores.masked_fill_(attn_mask, -1e9)
 
             attn = self.softmax(scores)
-            #attn = torch.max(attn, 3)[0]
+            attn = torch.max(attn, -1)[0]
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
         return context, attn
