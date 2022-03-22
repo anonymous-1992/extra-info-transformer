@@ -50,11 +50,11 @@ def evaluate(config, args, test_en, test_de, test_y, test_id, formatter, path, d
         forecast = torch.from_numpy(extract_numerical_data(
             formatter.format_predictions(output_map["predictions"])).to_numpy().astype('float32')).to(device)
 
-        predictions[j, :, :forecast.shape[0]] = forecast
+        predictions[j, :forecast.shape[0], :] = forecast
         targets = torch.from_numpy(extract_numerical_data(
             formatter.format_predictions(output_map["targets"])).to_numpy().astype('float32')).to(device)
 
-        targets_all[j, :, :targets.shape[0]] = targets
+        targets_all[j, :targets.shape[0], :] = targets
 
     normaliser = targets_all.to(device).abs().mean()
     test_loss = mse(predictions.to(device), targets_all.to(device)).item()
