@@ -36,7 +36,7 @@ def evaluate(config, args, test_en, test_de, test_y, test_id, formatter, path, d
                  tgt_pad_index=0, device=device,
                  attn_type=args.attn_type).to(device)
 
-    checkpoint = torch.load(os.path.join(path, "{}_{}".format(args.name, args.seed)))
+    checkpoint = torch.load(os.path.join(path, "{}".format(args.name)))
     model.load_state_dict(checkpoint["model_state_dict"])
 
     model.eval()
@@ -69,7 +69,7 @@ def evaluate(config, args, test_en, test_de, test_y, test_id, formatter, path, d
 def main():
 
     parser = argparse.ArgumentParser(description="train context-aware attention")
-    parser.add_argument("--name", type=str, default='context-aware-attn')
+    parser.add_argument("--name", type=str, default='extra_info_attn')
     parser.add_argument("--exp_name", type=str, default='electricity')
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--cuda", type=str, default='cuda:0')
