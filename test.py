@@ -121,8 +121,8 @@ def main():
         evaluate(configs, args, test_en_b.to(device), test_de_b.to(device), test_y_b.to(device), test_id_b, formatter, path, device)
 
     error_file[args.name] = list()
-    error_file[args.name].append(nrmse)
-    error_file[args.name].append(nmae)
+    error_file[args.name].append("{:.3f}".format(nrmse))
+    error_file[args.name].append("{:.3f}".format(nmae))
 
     res_path = "results_{}_{}.json".format(args.exp_name,
                                         params['total_time_steps'] - params['num_encoder_steps'])
@@ -132,8 +132,8 @@ def main():
             json_dat = json.load(json_file)
             if json_dat.get(args.name) is None:
                 json_dat[args.name] = list()
-            json_dat[args.name].append(nrmse)
-            json_dat[args.name].append(nmae)
+            json_dat[args.name].append("{:.3f}".format(nrmse))
+            json_dat[args.name].append("{:.3f}".format(nmae))
 
         with open(res_path, "w") as json_file:
             json.dump(json_dat, json_file)
