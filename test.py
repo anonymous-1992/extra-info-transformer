@@ -36,7 +36,7 @@ def evaluate(config, args, test_en, test_de, test_y, test_id, formatter, path, d
                  tgt_pad_index=0, device=device,
                  attn_type=args.attn_type).to(device)
 
-    checkpoint = torch.load(os.path.join(path, "{}".format(args.name)))
+    checkpoint = torch.load(os.path.join(path, "{}_{}".format(args.name, args.seed)))
     model.load_state_dict(checkpoint["model_state_dict"])
 
     model.eval()

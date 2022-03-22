@@ -65,9 +65,10 @@ def train(args, model, train_en, train_de, train_y,
         for batch_id in range(train_en.shape[0]):
             output = \
                 model(train_en[batch_id], train_de[batch_id])
-            smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=1))\
-                .to(device)
-            loss = criterion(output, train_y[batch_id]) + lam * L1Loss(output, smooth_output)
+            '''smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=1))\
+                .to(device)'''
+            #loss = criterion(output, train_y[batch_id]) + lam * L1Loss(output, smooth_output)
+            loss = criterion(output, train_y[batch_id])
             train_loss_list.append(loss.item())
             total_loss += loss.item()
             optimizer.zero_grad()
@@ -91,7 +92,8 @@ def train(args, model, train_en, train_de, train_y,
             if val_inner_loss < val_loss:
                 val_loss = val_inner_loss
                 best_config = config
-                torch.save({'model_state_dict': model.state_dict()}, os.path.join(path, args.name))
+                torch.save({'model_state_dict': model.state_dict()},
+                           os.path.join(path, "{}_{}".format(args.name, args.seed)))
 
             e = epoch
 
@@ -120,7 +122,7 @@ def create_config(hyper_parameters):
 def main():
 
     parser = argparse.ArgumentParser(description="train context-aware attention")
-    parser.add_argument("--name", type=str, default='extra-info-attn')
+    parser.add_argument("--name", type=str, default='extra_info_attn')
     parser.add_argument("--exp_name", type=str, default='electricity')
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--cuda", type=str, default='cuda:0')
