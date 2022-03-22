@@ -101,7 +101,7 @@ def main():
                                           params['total_time_steps'] -
                                           params['num_encoder_steps']), 'r') as json_file:
         configs = json.load(json_file)
-        configs = configs["{}_{}".format(args.nam)]
+        configs = configs["{}".format(args.name)]
 
     batch_size = configs[0]
 
