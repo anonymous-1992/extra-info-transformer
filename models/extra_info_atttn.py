@@ -72,9 +72,8 @@ class ScaledDotProductAttention(nn.Module):
             K = torch.einsum('bhknm,bhkmd->bhknd', attn_k, K_shared)
 
             #scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
-            scores = torch.einsum('bhqd,bhknd->bhqkn', Q, K) / np.sqrt(self.d_k)
+            scores = torch.einsum('bhqd,bhknd->bhqk', Q, K) / np.sqrt(self.d_k)
             #scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
-            scores = torch.max(scores, -1)[0]
 
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
