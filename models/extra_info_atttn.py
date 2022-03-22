@@ -63,16 +63,21 @@ class ScaledDotProductAttention(nn.Module):
 
             #b, h, l_k, d = K.shape
 
-            K_shared = K.permute(1, 2, 3, 0)
-            K_shared = F.pad(K_shared, pad=(self.n_pieces - 1, 0, 0, 0))
-            K_shared = K_shared.unfold(-1, self.n_pieces, 1)
-            K_shared = K_shared.permute(3, 0, 1, 4, 2)
-            k_score = torch.einsum('bhknd, bhkmd-> bhknm', K_shared, K_shared)
-            attn_k = self.softmax(k_score)
-            K = torch.einsum('bhknm,bhkmd->bhknd', attn_k, K_shared)
+            def get_shared_tuple(tple):
+
+                tple = tple.permute(1, 2, 3, 0)
+                tple = F.pad(tple, pad=(self.n_pieces - 1, 0, 0, 0))
+                tple = tple.unfold(-1, self.n_pieces, 1)
+                tple = tple.permute(3, 0, 1, 4, 2)
+                tple = torch.einsum('bhknd, bhkmd-> bhknm', tple, tple)
+                attn_k = self.softmax(tple)
+                tple = torch.einsum('bhknm,bhkmd->bhknd', attn_k, tple)
+                return tple
 
             #scores = torch.zeros(2, b, h, Q.shape[2], l_k).to(self.device)
-            scores = torch.einsum('bhqd,bhknd->bhqk', Q, K) / np.sqrt(self.d_k)
+            Q = get_shared_tuple(Q)
+            K = get_shared_tuple(K)
+            scores = torch.einsum('bhqnd,bhknd->bhqk', Q, K) / np.sqrt(self.d_k)
             #scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
             if attn_mask is not None:
