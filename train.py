@@ -57,6 +57,7 @@ torch.manual_seed(args.seed)
 mdl = nn.Module()
 best_model = nn.Module()
 
+
 class NoamOpt:
 
     def __init__(self, optimizer, lr_mul, d_model, n_warmup_steps):
@@ -135,9 +136,14 @@ def objective(trial):
 
     train_en_p, train_de_p, train_y_p, train_id_p = batching(batch_size, train_en,
                                                              train_de, train_y, train_id)
+    train_en_p, train_de_p, train_y_p, train_id_p = \
+        train_en_p.to(device), train_de_p.to(device), train_y_p.to(device), train_id_p
 
     valid_en_p, valid_de_p, valid_y_p, valid_id_p = batching(batch_size, valid_en,
                                                              valid_de, valid_y, valid_id)
+
+    valid_en_p, valid_de_p, valid_y_p, valid_id_p = \
+        valid_en_p.to(device), valid_de_p.to(device), valid_y_p.to(device), valid_id_p
 
     seq_len = params['total_time_steps'] - params['num_encoder_steps']
     path = "models_{}_{}".format(args.exp_name, seq_len)
@@ -205,6 +211,9 @@ def evaluate():
 
     test_en, test_de, test_y, test_id = batching(batch_size, test_en,
                                                          test_de, test_y, test_id)
+
+    test_en, test_de, test_y, test_id = \
+        test_en.to(device), test_de.to(device), test_y.to(device), test_id
     model = best_model
     model.eval()
 
