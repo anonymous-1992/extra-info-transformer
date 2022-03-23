@@ -164,10 +164,9 @@ def objective(trial):
         os.makedirs(path)
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
-    loss_func = trial.suggest_categorical("loss_func", ["mseLoss", "smoothMseLoss"])
+    lam = trial.suggest_categorical("lam", [0, 0.1])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
-    lam = 0.1
 
     model = define_model(d_model, n_heads, stack_size, train_en_p.shape[3], train_de_p.shape[3])
 
@@ -178,12 +177,8 @@ def objective(trial):
         model.train()
         for batch_id in range(train_en_p.shape[0]):
             output = model(train_en_p[batch_id], train_de_p[batch_id])
-            if loss_func == "mseLoss":
-                loss = criterion(output, train_y_p[batch_id])
-            else:
-                smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=1)).to(device)
-                loss = criterion(output, train_y_p[batch_id]) + lam * L1Loss(output, smooth_output)
-
+            smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=1)).to(device)
+            loss = criterion(output, train_y_p[batch_id]) + lam * L1Loss(output, smooth_output)
             total_loss += loss.item()
             optimizer.zero_grad()
             loss.backward()
