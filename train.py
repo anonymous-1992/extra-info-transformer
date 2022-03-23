@@ -49,6 +49,44 @@ mae = nn.L1Loss()
 
 batch_size = model_params["minibatch_size"][0]
 
+sample_data = batch_sampled_data(train_data, train_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], params["column_definition"])
+train_en, train_de, train_y, train_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
+                                        torch.from_numpy(sample_data['dec_inputs']).to(device), \
+                                        torch.from_numpy(sample_data['outputs']).to(device), \
+                                        sample_data['identifier']
+
+sample_data = batch_sampled_data(valid, valid_max, params['total_time_steps'],
+                                 params['num_encoder_steps'], params["column_definition"])
+valid_en, valid_de, valid_y, valid_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
+                                        torch.from_numpy(sample_data['dec_inputs']).to(device), \
+                                        torch.from_numpy(sample_data['outputs']).to(device), \
+                                        sample_data['identifier']
+
+train_en_p, train_de_p, train_y_p, train_id_p = batching(batch_size, train_en,
+                                                         train_de, train_y, train_id)
+train_en_p, train_de_p, train_y_p, train_id_p = \
+    train_en_p.to(device), train_de_p.to(device), train_y_p.to(device), train_id_p
+
+valid_en_p, valid_de_p, valid_y_p, valid_id_p = batching(batch_size, valid_en,
+                                                         valid_de, valid_y, valid_id)
+
+valid_en_p, valid_de_p, valid_y_p, valid_id_p = \
+    valid_en_p.to(device), valid_de_p.to(device), valid_y_p.to(device), valid_id_p
+
+sample_data = batch_sampled_data(test, valid_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], params["column_definition"])
+test_en, test_de, test_y, test_id = torch.from_numpy(sample_data['enc_inputs']), \
+                                    torch.from_numpy(sample_data['dec_inputs']), \
+                                    torch.from_numpy(sample_data['outputs']), \
+                                    sample_data['identifier']
+
+test_en, test_de, test_y, test_id = batching(batch_size, test_en,
+                                                     test_de, test_y, test_id)
+
+test_en, test_de, test_y, test_id = \
+    test_en.to(device), test_de.to(device), test_y.to(device), test_id
+
 np.random.seed(1234)
 random.seed(1234)
 
@@ -120,31 +158,6 @@ def callback(study, trial):
 
 def objective(trial):
 
-    sample_data = batch_sampled_data(train_data, train_max, params['total_time_steps'],
-                                     params['num_encoder_steps'], params["column_definition"])
-    train_en, train_de, train_y, train_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
-                                            torch.from_numpy(sample_data['dec_inputs']).to(device), \
-                                            torch.from_numpy(sample_data['outputs']).to(device), \
-                                            sample_data['identifier']
-
-    sample_data = batch_sampled_data(valid, valid_max, params['total_time_steps'],
-                                     params['num_encoder_steps'], params["column_definition"])
-    valid_en, valid_de, valid_y, valid_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
-                                            torch.from_numpy(sample_data['dec_inputs']).to(device), \
-                                            torch.from_numpy(sample_data['outputs']).to(device), \
-                                            sample_data['identifier']
-
-    train_en_p, train_de_p, train_y_p, train_id_p = batching(batch_size, train_en,
-                                                             train_de, train_y, train_id)
-    train_en_p, train_de_p, train_y_p, train_id_p = \
-        train_en_p.to(device), train_de_p.to(device), train_y_p.to(device), train_id_p
-
-    valid_en_p, valid_de_p, valid_y_p, valid_id_p = batching(batch_size, valid_en,
-                                                             valid_de, valid_y, valid_id)
-
-    valid_en_p, valid_de_p, valid_y_p, valid_id_p = \
-        valid_en_p.to(device), valid_de_p.to(device), valid_y_p.to(device), valid_id_p
-
     seq_len = params['total_time_steps'] - params['num_encoder_steps']
     path = "models_{}_{}".format(args.exp_name, seq_len)
     if not os.path.exists(path):
@@ -202,18 +215,6 @@ def evaluate():
             if col not in {"forecast_time", "identifier"}
         ]]
 
-    sample_data = batch_sampled_data(test, valid_max, params['total_time_steps'],
-                                     params['num_encoder_steps'], params["column_definition"])
-    test_en, test_de, test_y, test_id = torch.from_numpy(sample_data['enc_inputs']), \
-                                        torch.from_numpy(sample_data['dec_inputs']), \
-                                        torch.from_numpy(sample_data['outputs']), \
-                                        sample_data['identifier']
-
-    test_en, test_de, test_y, test_id = batching(batch_size, test_en,
-                                                         test_de, test_y, test_id)
-
-    test_en, test_de, test_y, test_id = \
-        test_en.to(device), test_de.to(device), test_y.to(device), test_id
     model = best_model
     model.eval()
 
@@ -239,74 +240,6 @@ def evaluate():
     mae_loss = mae_loss / normaliser.item()
 
     return test_loss, mae_loss
-
-
-def train(args, model, train_en, train_de, train_y,
-          test_en, test_de, test_y, epoch, e, val_loss,
-          val_inner_loss, optimizer, train_loss_list,
-          config, config_num, best_config, criterion, path, stop, device):
-
-
-    lam = 0.1
-    try:
-        model.train()
-        total_loss = 0
-        start = time.time()
-        for batch_id in range(train_en.shape[0]):
-            output = \
-                model(train_en[batch_id], train_de[batch_id])
-            '''smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=1))\
-                .to(device)'''
-            #loss = criterion(output, train_y[batch_id]) + lam * L1Loss(output, smooth_output)
-            loss = criterion(output, train_y[batch_id])
-            train_loss_list.append(loss.item())
-            total_loss += loss.item()
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step_and_update_lr()
-        end = time.time()
-        total_time = end - start
-        print("total time: {}".format(total_time))
-
-        print("Train epoch: {}, loss: {:.4f}".format(epoch, total_loss))
-
-        model.eval()
-        test_loss = 0
-        for j in range(test_en.shape[0]):
-            outputs = model(test_en[j], test_de[j])
-            loss = criterion(test_y[j], outputs)
-            test_loss += loss.item()
-
-        if test_loss < val_inner_loss:
-            val_inner_loss = test_loss
-            if val_inner_loss < val_loss:
-                val_loss = val_inner_loss
-                best_config = config
-                torch.save({'model_state_dict': model.state_dict()},
-                           os.path.join(path, "{}_{}".format(args.name, args.seed)))
-
-            e = epoch
-
-        if epoch - e > 5:
-            stop = True
-
-        print("Average loss: {:.4f}".format(test_loss))
-
-    except KeyboardInterrupt:
-        torch.save({
-            'epoch': epoch,
-            'model_state_dict': model.state_dict(),
-            'config_num': config_num,
-            'best_config': best_config
-        }, os.path.join(path, "{}_continue".format(args.name)))
-        sys.exit(0)
-
-    return best_config, val_loss, val_inner_loss, stop, e
-
-
-def create_config(hyper_parameters):
-    prod = list(itertools.product(*hyper_parameters))
-    return list(random.sample(set(prod), len(prod)))
 
 
 def main():
