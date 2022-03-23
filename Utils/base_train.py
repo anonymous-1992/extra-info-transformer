@@ -26,7 +26,7 @@ InputTypes = base.InputTypes
 
 def batching(batch_size, x_en, x_de, y_t, test_id):
 
-    batch_n = math.ceil(x_en.shape[0] / batch_size)
+    batch_n = math.floor(x_en.shape[0] / batch_size)
     start = 0
     X_en = torch.zeros(batch_n, batch_size, x_en.shape[1], x_en.shape[2])
     X_de = torch.zeros(batch_n, batch_size, x_de.shape[1], x_de.shape[2])
@@ -41,12 +41,6 @@ def batching(batch_size, x_en, x_de, y_t, test_id):
         tst_id[i, :, :, :] = test_id[start:start+batch_size, :, :]
         start += batch_size
         i += 1
-    remain = start - x_en.shape[0]
-    if remain > 0:
-        X_en[i, :remain, :, :] = x_en[-remain:, :, :]
-        X_de[i, :remain, :, :] = x_de[-remain:, :, :]
-        Y_t[i, :remain, :, :] = y_t[-remain:, :, :]
-        tst_id[i, :remain, :, :] = test_id[-remain:, :, :]
 
     return X_en, X_de, Y_t, tst_id
 
