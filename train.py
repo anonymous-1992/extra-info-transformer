@@ -173,8 +173,8 @@ def objective(trial):
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
-    total_loss = 0
     for epoch in range(params['num_epochs']):
+        total_loss = 0
         model.train()
         for batch_id in range(train_en_p.shape[0]):
             output = model(train_en_p[batch_id], train_de_p[batch_id])
@@ -197,6 +197,8 @@ def objective(trial):
             outputs = model(valid_en_p[j], valid_de_p[j])
             loss = criterion(valid_y_p[j], outputs)
             test_loss += loss.item()
+
+        print("Validation loss: {}".format(test_loss))
 
         trial.report(test_loss, epoch)
 
