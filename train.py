@@ -241,7 +241,8 @@ def evaluate():
 
 def main():
 
-    study = optuna.create_study(direction="minimize")
+    study = optuna.create_study(direction="minimize",
+        pruner=optuna.pruners.PatientPruner(None, patience=10),)
     study.optimize(objective, n_trials=4, callbacks=[callback])
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
