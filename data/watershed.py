@@ -38,11 +38,6 @@ class WatershedFormatter(DataFormatter):
         ('id', DataTypes.REAL_VALUED, InputTypes.ID),
         ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.TIME),
         ('Conductivity', DataTypes.REAL_VALUED, InputTypes.TARGET),
-        ('TempC', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-        ('Nitrate_mg', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-        ('Q', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-        ('pH', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-        ('ODOPerCent', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ('day_of_week', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ('hour', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
@@ -123,7 +118,7 @@ class WatershedFormatter(DataFormatter):
         """Returns default optimised model parameters."""
 
         model_params = {
-            'hidden_layer_size': [16, 32],
+            'hidden_layer_size': [16, 32, 64],
             'minibatch_size': [256],
             'num_heads': 8,
             'stack_size': 1,
