@@ -223,7 +223,7 @@ class ElectricityFormatter(GenericDataFormatter):
         fixed_params = {
             'total_time_steps': 8 * 24,
             'num_encoder_steps': 7 * 24,
-            'num_epochs': 5,
+            'num_epochs': 30,
         }
 
         return fixed_params
@@ -235,4 +235,4 @@ class ElectricityFormatter(GenericDataFormatter):
         Returns:
           Tuple of (training samples, validation samples)
         """
-        return 256, 256
+        return 128000, 16384
