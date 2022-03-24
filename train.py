@@ -207,7 +207,7 @@ def objective(trial):
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
 
-        if epoch - best_iter_num >= 10:
+        if epoch - best_iter_num >= 15:
             break
 
     return test_loss
@@ -252,7 +252,7 @@ def evaluate():
 def main():
 
     study = optuna.create_study(direction="minimize", pruner=optuna.pruners.HyperbandPruner())
-    study.optimize(objective, n_trials=4, callbacks=[callback])
+    study.optimize(objective, n_trials=2, callbacks=[callback])
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
