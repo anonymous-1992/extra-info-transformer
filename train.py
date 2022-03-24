@@ -133,6 +133,15 @@ torch.autograd.set_detect_anomaly(True)
 L1Loss = nn.L1Loss()
 
 
+def early_stopping_check(study, trial, early_stopping_rounds=10):
+    current_trial_number = trial.number
+    best_trial_number = study.best_trial.number
+    should_stop = (current_trial_number - best_trial_number) >= early_stopping_rounds
+    if should_stop:
+        print("early stopping detected")
+        study.stop()
+
+
 def define_model(d_model, n_heads, stack_size, src_input_size, tgt_input_size):
 
     global mdl
@@ -243,7 +252,7 @@ def main():
 
     study = optuna.create_study(direction="minimize",
         pruner=optuna.pruners.PatientPruner(None, patience=10),)
-    study.optimize(objective, n_trials=4, callbacks=[callback])
+    study.optimize(objective, n_trials=4, callbacks=[callback, early_stopping_check])
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
