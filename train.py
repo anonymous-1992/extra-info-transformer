@@ -172,6 +172,8 @@ def objective(trial):
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
+    val_loss = 1e10
+    best_iter_num = 0
     for epoch in range(params['num_epochs']):
         total_loss = 0
         model.train()
@@ -193,12 +195,19 @@ def objective(trial):
             loss = criterion(valid_y_p[j], outputs)
             test_loss += loss.item()
 
+        if val_loss > test_loss:
+            val_loss = test_loss
+            best_iter_num = epoch
+
         print("Validation loss: {}".format(test_loss))
 
         trial.report(test_loss, epoch)
 
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
+
+        if epoch - best_iter_num >= 10:
+            break
 
     return test_loss
 
