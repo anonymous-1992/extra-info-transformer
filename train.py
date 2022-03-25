@@ -179,7 +179,7 @@ def objective(trial):
         model.train()
         for batch_id in range(train_en_p.shape[0]):
             output = model(train_en_p[batch_id], train_de_p[batch_id])
-            smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=1)).to(device)
+            smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=5)).to(device)
             loss = criterion(output, train_y_p[batch_id]) + lam * L1Loss(output, smooth_output)
             #loss = criterion(output, train_y_p[batch_id])
             total_loss += loss.item()
