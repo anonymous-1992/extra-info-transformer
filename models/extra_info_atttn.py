@@ -70,7 +70,6 @@ class ScaledDotProductAttention(nn.Module):
 
             scores = torch.einsum('bhqd,bhknd->bhqk', Q, K) / np.sqrt(self.d_k)
 
-
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
                 attn_mask = attn_mask.to(self.device)
