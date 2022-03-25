@@ -92,7 +92,7 @@ random.seed(1234)
 
 torch.manual_seed(args.seed)
 
-mdl = nn.Module()
+val_loss = 1e10
 best_model = nn.Module()
 
 
@@ -135,29 +135,23 @@ L1Loss = nn.L1Loss()
 
 def define_model(d_model, n_heads, stack_size, src_input_size, tgt_input_size):
 
-    global mdl
     d_k = int(d_model / n_heads)
 
-    model = Attn(src_input_size=src_input_size,
+    mdl = Attn(src_input_size=src_input_size,
                  tgt_input_size=tgt_input_size,
                  d_model=d_model,
                  d_ff=d_model * 4,
                  d_k=d_k, d_v=d_k, n_heads=n_heads,
                  n_layers=stack_size, src_pad_index=0,
                  tgt_pad_index=0, device=device, attn_type=args.attn_type)
-    model.to(device)
-    mdl = model
-    return model
-
-
-def callback(study, trial):
-    global best_model
-    if study.best_trial == trial:
-        best_model = mdl
+    mdl.to(device)
+    return mdl
 
 
 def objective(trial):
 
+    global best_model
+    global val_loss
     seq_len = params['total_time_steps'] - params['num_encoder_steps']
     path = "models_{}_{}".format(args.exp_name, seq_len)
     if not os.path.exists(path):
@@ -172,7 +166,6 @@ def objective(trial):
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
-    val_loss = 1e10
     best_iter_num = 0
     for epoch in range(params['num_epochs']):
         total_loss = 0
@@ -199,10 +192,11 @@ def objective(trial):
         if val_loss > test_loss:
             val_loss = test_loss
             best_iter_num = epoch
+            best_model = model
 
         print("Validation loss: {}".format(test_loss))
 
-        trial.report(test_loss, epoch)
+        trial.report(val_loss, epoch)
 
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
@@ -210,7 +204,7 @@ def objective(trial):
         if epoch - best_iter_num >= 15:
             break
 
-    return test_loss
+    return val_loss
 
 
 def evaluate():
@@ -252,7 +246,7 @@ def evaluate():
 def main():
 
     study = optuna.create_study(direction="minimize", pruner=optuna.pruners.HyperbandPruner())
-    study.optimize(objective, n_trials=2, callbacks=[callback])
+    study.optimize(objective, n_trials=2)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
