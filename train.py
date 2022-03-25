@@ -167,6 +167,7 @@ def objective(trial):
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
     best_iter_num = 0
+    val_inner_loss = 1e10
     for epoch in range(params['num_epochs']):
         total_loss = 0
         model.train()
@@ -189,10 +190,12 @@ def objective(trial):
             loss = criterion(valid_y_p[j], outputs)
             test_loss += loss.item()
 
-        if val_loss > test_loss:
-            val_loss = test_loss
+        if val_inner_loss > test_loss:
+            val_inner_loss = test_loss
+            if val_loss > val_inner_loss:
+                val_loss = val_inner_loss
+                best_model = model
             best_iter_num = epoch
-            best_model = model
 
         print("Validation loss: {}".format(test_loss))
 
