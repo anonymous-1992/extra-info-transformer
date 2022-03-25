@@ -163,8 +163,8 @@ def objective(trial):
     if not os.path.exists(path):
         os.makedirs(path)
 
-    d_model = trial.suggest_categorical("d_model", [16, 32, 64])
-    lam = trial.suggest_categorical("lam", [0, 0.1, 0.3])
+    d_model = trial.suggest_categorical("d_model", [16, 32])
+    #lam = trial.suggest_categorical("lam", [0, 0.1, 0.3])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
@@ -179,9 +179,9 @@ def objective(trial):
         model.train()
         for batch_id in range(train_en_p.shape[0]):
             output = model(train_en_p[batch_id], train_de_p[batch_id])
-            smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=5)).to(device)
-            loss = criterion(output, train_y_p[batch_id]) + lam * L1Loss(output, smooth_output)
-            #loss = criterion(output, train_y_p[batch_id])
+            '''smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=5)).to(device)
+            loss = criterion(output, train_y_p[batch_id]) + lam * L1Loss(output, smooth_output)'''
+            loss = criterion(output, train_y_p[batch_id])
             total_loss += loss.item()
             optimizer.zero_grad()
             loss.backward()
@@ -252,7 +252,7 @@ def evaluate():
 def main():
 
     study = optuna.create_study(direction="minimize", pruner=optuna.pruners.HyperbandPruner())
-    study.optimize(objective, n_trials=3, callbacks=[callback])
+    study.optimize(objective, n_trials=2, callbacks=[callback])
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
