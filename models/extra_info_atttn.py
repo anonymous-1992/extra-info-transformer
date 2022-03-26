@@ -38,7 +38,7 @@ class PositionalEncoding(nn.Module):
 
 class ScaledDotProductAttention(nn.Module):
 
-    def __init__(self, d_k, device, b_size, attn_type):
+    def __init__(self, d_k, device, b_size, attn_type, self_attn=True):
 
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
@@ -46,10 +46,11 @@ class ScaledDotProductAttention(nn.Module):
         self.n_pieces = math.ceil(math.log2(b_size))
         self.softmax = nn.Softmax(dim=-1)
         self.attn_type = attn_type
+        self.self_attn = self_attn
 
     def forward(self, Q, K, V, attn_mask):
 
-        if self.attn_type == "basic_attn":
+        if self.attn_type == "basic_attn" or not self.self_attn:
             scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
@@ -83,7 +84,7 @@ class ScaledDotProductAttention(nn.Module):
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, d_model, d_k, d_v, n_heads, device, attn_type):
+    def __init__(self, d_model, d_k, d_v, n_heads, device, attn_type, self_attn=True):
 
         super(MultiHeadAttention, self).__init__()
 
@@ -99,6 +100,7 @@ class MultiHeadAttention(nn.Module):
         self.d_v = d_v
         self.n_heads = n_heads
         self.attn_type = attn_type
+        self.self_attn = self_attn
 
     def forward(self, Q, K, V, attn_mask):
 
@@ -109,7 +111,8 @@ class MultiHeadAttention(nn.Module):
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
         context, attn = ScaledDotProductAttention(d_k=self.d_k, device=self.device,
-                                                  b_size=batch_size, attn_type=self.attn_type)(
+                                                  b_size=batch_size, attn_type=self.attn_type,
+                                                  self_attn=self.self_attn)(
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         output = self.fc(context)
@@ -199,7 +202,7 @@ class DecoderLayer(nn.Module):
             d_v=d_v, n_heads=n_heads, device=device, attn_type=attn_type)
         self.dec_enc_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
-            d_v=d_v, n_heads=n_heads, device=device, attn_type=attn_type)
+            d_v=d_v, n_heads=n_heads, device=device, attn_type=attn_type, self_attn=False)
         self.pos_ffn = PoswiseFeedForwardNet(
             d_model=d_model, d_ff=d_ff)
         self.layer_norm = nn.LayerNorm(d_model, elementwise_affine=False)
