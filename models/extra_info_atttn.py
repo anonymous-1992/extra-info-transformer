@@ -62,13 +62,14 @@ class ScaledDotProductAttention(nn.Module):
 
         elif self.attn_type == "extra_info_attn":
 
-            K_shared = K.permute(1, 2, 3, 0)
-            K_shared = F.pad(K_shared, pad=(self.n_pieces - 1, 0, 0, 0))
-            K_shared = K_shared.unfold(-1, self.n_pieces, 1)
-            K_shared = K_shared.permute(3, 0, 1, 4, 2)
-            k_score = torch.einsum('bhknd, bhkmd-> bhknm', K_shared, K_shared) / np.sqrt(self.d_k)
+            b, h, l_k, d = K.shape
+            K = K.reshape(l_k, h*d, b)
+            K = F.pad(K, pad=(self.n_pieces - 1, 0, 0, 0))
+            K = K.unfold(-1, self.n_pieces, 1)
+            K = K.reshape(b, h, l_k, self.n_pieces, d)
+            k_score = torch.einsum('bhknd, bhkmd-> bhknm', K, K) / np.sqrt(self.d_k)
             attn_k = self.softmax(k_score)
-            K = torch.einsum('bhknm,bhkmd->bhknd', attn_k, K_shared)
+            K = torch.einsum('bhknm,bhkmd->bhknd', attn_k, K)
             K = torch.einsum('bhknd, n -> bhkd', K, self.w_b)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
