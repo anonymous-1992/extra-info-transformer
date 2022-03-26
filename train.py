@@ -196,7 +196,7 @@ def objective(trial):
         if epoch - best_iter_num >= 15:
             break
 
-    return val_loss
+    return val_inner_loss
 
 
 def evaluate():
