@@ -48,6 +48,8 @@ test_sample = batch_sampled_data(test, valid_max, params['total_time_steps'],
                                      params['num_encoder_steps'], params["column_definition"])
 
 
+batch_size = 512
+
 device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
 if torch.cuda.is_available():
     print("Running on GPU")
@@ -125,7 +127,6 @@ def objective(trial):
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
     #lam = trial.suggest_categorical("lam", [0, 0.1, 0.3])
-    batch_size = trial.suggest_categorical("batch_size", [512, 256])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
@@ -198,7 +199,7 @@ def objective(trial):
     return val_loss
 
 
-def evaluate(b_size):
+def evaluate():
 
     def extract_numerical_data(data):
         """Strips out forecast time and identifier columns."""
@@ -217,7 +218,7 @@ def evaluate(b_size):
                                         torch.from_numpy(sample_data['outputs']), \
                                         sample_data['identifier']
 
-    test_en, test_de, test_y, test_id = batching(b_size, test_en,
+    test_en, test_de, test_y, test_id = batching(batch_size, test_en,
                                                  test_de, test_y, test_id)
 
     test_en, test_de, test_y, test_id = \
@@ -270,8 +271,7 @@ def main():
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
 
-    b_size = study.best_params.get("batch_size")
-    nrmse, nmae = evaluate(b_size)
+    nrmse, nmae = evaluate()
 
     error_file = dict()
     error_file[args.name] = list()
