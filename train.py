@@ -252,7 +252,7 @@ def main():
 
     study = optuna.create_study(study_name=args.name,
                                 direction="minimize", pruner=optuna.pruners.HyperbandPruner())
-    study.optimize(objective, n_trials=4)
+    study.optimize(objective, n_trials=2)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
