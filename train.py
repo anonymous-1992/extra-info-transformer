@@ -101,14 +101,6 @@ class NoamOpt:
             param_group['lr'] = lr
 
 
-def extract_numerical_data(data):
-    """Strips out forecast time and identifier columns."""
-    return data[[
-        col for col in data.columns
-        if col not in {"forecast_time", "identifier"}
-    ]]
-
-
 torch.autograd.set_detect_anomaly(True)
 L1Loss = nn.L1Loss()
 
@@ -159,31 +151,10 @@ def objective(trial):
     valid_en, valid_de, valid_y, valid_id = \
         valid_en.to(device), valid_de.to(device), valid_y.to(device), valid_id
 
-    targets_all = torch.zeros(valid_y.shape[0], valid_y.shape[1], valid_y.shape[2])
-    predictions = torch.zeros(valid_y.shape[0], valid_y.shape[1], valid_y.shape[2])
-
     model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3])
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
-    def format_outputs(preds, test_id):
-        flat_prediction = pd.DataFrame(
-            preds[:, :, 0],
-            columns=[
-                't+{}'.format(i)
-                for i in range(preds.shape[1])
-            ]
-        )
-        flat_prediction['identifier'] = test_id[:, 0, 0]
-        return flat_prediction
-
-    for j in range(valid_en.shape[0]):
-
-        targets = torch.from_numpy(extract_numerical_data(
-            formatter.format_predictions(format_outputs(valid_y[j], valid_id[j]))).to_numpy().astype('float32')).to(device)
-
-        targets_all[j, :targets.shape[0], :] = targets
-    normaliser = targets_all.to(device).abs().mean()
     best_iter_num = 0
     val_inner_loss = 1e10
     for epoch in range(params['num_epochs']):
@@ -202,19 +173,11 @@ def objective(trial):
         print("Train epoch: {}, loss: {:.4f}".format(epoch, total_loss))
 
         model.eval()
-
+        test_loss = 0
         for j in range(valid_en.shape[0]):
             outputs = model(valid_en[j], valid_de[j])
-            output_map = inverse_output(outputs, valid_en[j], valid_id[j])
-            forecast = torch.from_numpy(extract_numerical_data(
-                formatter.format_predictions(output_map["predictions"])).to_numpy().astype('float32')).to(device)
-
-            predictions[j, :forecast.shape[0], :] = forecast
-            '''loss = criterion(valid_y[j], outputs)
-            test_loss += loss.item()'''
-
-        test_loss = criterion(predictions.to(device), targets_all.to(device)).item()
-        test_loss = math.sqrt(test_loss) / normaliser.item()
+            loss = criterion(valid_y[j], outputs)
+            test_loss += loss.item()
 
         if val_inner_loss > test_loss:
             val_inner_loss = test_loss
@@ -237,6 +200,13 @@ def objective(trial):
 
 
 def evaluate():
+
+    def extract_numerical_data(data):
+        """Strips out forecast time and identifier columns."""
+        return data[[
+            col for col in data.columns
+            if col not in {"forecast_time", "identifier"}
+        ]]
 
     model = best_model
     model.eval()
