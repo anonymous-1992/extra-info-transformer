@@ -47,46 +47,6 @@ model_params = formatter.get_default_model_params()
 criterion = nn.MSELoss()
 mae = nn.L1Loss()
 
-batch_size = model_params["minibatch_size"][0]
-
-sample_data = batch_sampled_data(train_data, train_max, params['total_time_steps'],
-                                     params['num_encoder_steps'], params["column_definition"])
-train_en, train_de, train_y, train_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
-                                        torch.from_numpy(sample_data['dec_inputs']).to(device), \
-                                        torch.from_numpy(sample_data['outputs']).to(device), \
-                                        sample_data['identifier']
-
-sample_data = batch_sampled_data(valid, valid_max, params['total_time_steps'],
-                                 params['num_encoder_steps'], params["column_definition"])
-valid_en, valid_de, valid_y, valid_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
-                                        torch.from_numpy(sample_data['dec_inputs']).to(device), \
-                                        torch.from_numpy(sample_data['outputs']).to(device), \
-                                        sample_data['identifier']
-
-train_en_p, train_de_p, train_y_p, train_id_p = batching(batch_size, train_en,
-                                                         train_de, train_y, train_id)
-train_en_p, train_de_p, train_y_p, train_id_p = \
-    train_en_p.to(device), train_de_p.to(device), train_y_p.to(device), train_id_p
-
-valid_en_p, valid_de_p, valid_y_p, valid_id_p = batching(batch_size, valid_en,
-                                                         valid_de, valid_y, valid_id)
-
-valid_en_p, valid_de_p, valid_y_p, valid_id_p = \
-    valid_en_p.to(device), valid_de_p.to(device), valid_y_p.to(device), valid_id_p
-
-sample_data = batch_sampled_data(test, valid_max, params['total_time_steps'],
-                                     params['num_encoder_steps'], params["column_definition"])
-test_en, test_de, test_y, test_id = torch.from_numpy(sample_data['enc_inputs']), \
-                                    torch.from_numpy(sample_data['dec_inputs']), \
-                                    torch.from_numpy(sample_data['outputs']), \
-                                    sample_data['identifier']
-
-test_en, test_de, test_y, test_id = batching(batch_size, test_en,
-                                                     test_de, test_y, test_id)
-
-test_en, test_de, test_y, test_id = \
-    test_en.to(device), test_de.to(device), test_y.to(device), test_id
-
 np.random.seed(1234)
 random.seed(1234)
 
@@ -152,17 +112,39 @@ def objective(trial):
 
     global best_model
     global val_loss
-    seq_len = params['total_time_steps'] - params['num_encoder_steps']
-    path = "models_{}_{}".format(args.exp_name, seq_len)
-    if not os.path.exists(path):
-        os.makedirs(path)
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
     #lam = trial.suggest_categorical("lam", [0, 0.1, 0.3])
+    batch_size = trial.suggest_categorical("batch_size", [256, 512])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
-    model = define_model(d_model, n_heads, stack_size, train_en_p.shape[3], train_de_p.shape[3])
+    sample_data = batch_sampled_data(train_data, train_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], params["column_definition"])
+    train_en, train_de, train_y, train_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
+                                            torch.from_numpy(sample_data['dec_inputs']).to(device), \
+                                            torch.from_numpy(sample_data['outputs']).to(device), \
+                                            sample_data['identifier']
+
+    sample_data = batch_sampled_data(valid, valid_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], params["column_definition"])
+    valid_en, valid_de, valid_y, valid_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
+                                            torch.from_numpy(sample_data['dec_inputs']).to(device), \
+                                            torch.from_numpy(sample_data['outputs']).to(device), \
+                                            sample_data['identifier']
+
+    train_en, train_de, train_y, train_id = batching(batch_size, train_en,
+                                                             train_de, train_y, train_id)
+    train_en, train_de, train_y, train_id = \
+        train_en.to(device), train_de.to(device), train_y.to(device), train_id
+
+    valid_en, valid_de, valid_y, valid_id = batching(batch_size, valid_en,
+                                                             valid_de, valid_y, valid_id)
+
+    valid_en, valid_de, valid_y, valid_id = \
+        valid_en.to(device), valid_de.to(device), valid_y.to(device), valid_id
+
+    model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3])
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
@@ -171,11 +153,11 @@ def objective(trial):
     for epoch in range(params['num_epochs']):
         total_loss = 0
         model.train()
-        for batch_id in range(train_en_p.shape[0]):
-            output = model(train_en_p[batch_id], train_de_p[batch_id])
+        for batch_id in range(train_en.shape[0]):
+            output = model(train_en[batch_id], train_de[batch_id])
             '''smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=5)).to(device)
             loss = criterion(output, train_y_p[batch_id]) + lam * L1Loss(output, smooth_output)'''
-            loss = criterion(output, train_y_p[batch_id])
+            loss = criterion(output, train_y[batch_id])
             total_loss += loss.item()
             optimizer.zero_grad()
             loss.backward()
@@ -185,9 +167,9 @@ def objective(trial):
 
         model.eval()
         test_loss = 0
-        for j in range(valid_en_p.shape[0]):
-            outputs = model(valid_en_p[j], valid_de_p[j])
-            loss = criterion(valid_y_p[j], outputs)
+        for j in range(valid_en.shape[0]):
+            outputs = model(valid_en[j], valid_de[j])
+            loss = criterion(valid_y[j], outputs)
             test_loss += loss.item()
 
         if val_inner_loss > test_loss:
@@ -210,7 +192,7 @@ def objective(trial):
     return val_loss
 
 
-def evaluate():
+def evaluate(b_size):
 
     def extract_numerical_data(data):
         """Strips out forecast time and identifier columns."""
@@ -221,6 +203,19 @@ def evaluate():
 
     model = best_model
     model.eval()
+
+    sample_data = batch_sampled_data(test, valid_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], params["column_definition"])
+    test_en, test_de, test_y, test_id = torch.from_numpy(sample_data['enc_inputs']), \
+                                        torch.from_numpy(sample_data['dec_inputs']), \
+                                        torch.from_numpy(sample_data['outputs']), \
+                                        sample_data['identifier']
+
+    test_en, test_de, test_y, test_id = batching(b_size, test_en,
+                                                 test_de, test_y, test_id)
+
+    test_en, test_de, test_y, test_id = \
+        test_en.to(device), test_de.to(device), test_y.to(device), test_id
 
     predictions = torch.zeros(test_y.shape[0], test_y.shape[1], test_y.shape[2])
     targets_all = torch.zeros(test_y.shape[0], test_y.shape[1], test_y.shape[2])
@@ -250,7 +245,7 @@ def main():
 
     study = optuna.create_study(study_name=args.name,
                                 direction="minimize", pruner=optuna.pruners.HyperbandPruner())
-    study.optimize(objective, n_trials=2)
+    study.optimize(objective, n_trials=4)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -269,7 +264,8 @@ def main():
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
 
-    nrmse, nmae = evaluate()
+    b_size = study.best_params.get("batch_size")
+    nrmse, nmae = evaluate(b_size)
 
     error_file = dict()
     error_file[args.name] = list()
