@@ -41,10 +41,10 @@ params = formatter.get_experiment_params()
 train_sample = batch_sampled_data(train_data, train_max, params['total_time_steps'],
                                      params['num_encoder_steps'], params["column_definition"])
 
-valid_sample = batch_sampled_data(valid, train_max, params['total_time_steps'],
+valid_sample = batch_sampled_data(valid, valid_max, params['total_time_steps'],
                                      params['num_encoder_steps'], params["column_definition"])
 
-test_sample = batch_sampled_data(test, train_max, params['total_time_steps'],
+test_sample = batch_sampled_data(test, valid_max, params['total_time_steps'],
                                      params['num_encoder_steps'], params["column_definition"])
 
 
