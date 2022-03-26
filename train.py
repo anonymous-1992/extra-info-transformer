@@ -115,7 +115,7 @@ def objective(trial):
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
     #lam = trial.suggest_categorical("lam", [0, 0.1, 0.3])
-    batch_size = trial.suggest_categorical("batch_size", [256, 512])
+    batch_size = trial.suggest_categorical("batch_size", [512, 256])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
