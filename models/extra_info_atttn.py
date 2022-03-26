@@ -51,7 +51,7 @@ class ScaledDotProductAttention(nn.Module):
 
     def forward(self, Q, K, V, attn_mask):
 
-        if self.attn_type == "basic_attn":
+        if self.attn_type == "basic_attn" or self.self_attn:
             scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
@@ -66,7 +66,7 @@ class ScaledDotProductAttention(nn.Module):
             K_shared = F.pad(K_shared, pad=(self.n_pieces - 1, 0, 0, 0))
             K_shared = K_shared.unfold(-1, self.n_pieces, 1)
             K_shared = K_shared.permute(3, 0, 1, 4, 2)
-            k_score = torch.einsum('bhknd, bhkmd-> bhknm', K_shared, K_shared)
+            k_score = torch.einsum('bhknd, bhkmd-> bhknm', K_shared, K_shared) / np.sqrt(self.d_k)
             attn_k = self.softmax(k_score)
             K = torch.einsum('bhknm,bhkmd->bhknd', attn_k, K_shared)
             K = torch.einsum('bhknd, n -> bhkd', K, self.w_b)
