@@ -38,6 +38,16 @@ train_data, valid, test = formatter.split_data(raw_data)
 train_max, valid_max = formatter.get_num_samples_for_calibration()
 params = formatter.get_experiment_params()
 
+train_sample = batch_sampled_data(train_data, train_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], params["column_definition"])
+
+valid_sample = batch_sampled_data(valid, train_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], params["column_definition"])
+
+test_sample = batch_sampled_data(test, train_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], params["column_definition"])
+
+
 device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
 if torch.cuda.is_available():
     print("Running on GPU")
@@ -119,19 +129,15 @@ def objective(trial):
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
-    sample_data = batch_sampled_data(train_data, train_max, params['total_time_steps'],
-                                     params['num_encoder_steps'], params["column_definition"])
-    train_en, train_de, train_y, train_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
-                                            torch.from_numpy(sample_data['dec_inputs']).to(device), \
-                                            torch.from_numpy(sample_data['outputs']).to(device), \
-                                            sample_data['identifier']
+    train_en, train_de, train_y, train_id = torch.from_numpy(train_sample['enc_inputs']).to(device), \
+                                            torch.from_numpy(train_sample['dec_inputs']).to(device), \
+                                            torch.from_numpy(train_sample['outputs']).to(device), \
+                                            train_sample['identifier']
 
-    sample_data = batch_sampled_data(valid, valid_max, params['total_time_steps'],
-                                     params['num_encoder_steps'], params["column_definition"])
-    valid_en, valid_de, valid_y, valid_id = torch.from_numpy(sample_data['enc_inputs']).to(device), \
-                                            torch.from_numpy(sample_data['dec_inputs']).to(device), \
-                                            torch.from_numpy(sample_data['outputs']).to(device), \
-                                            sample_data['identifier']
+    valid_en, valid_de, valid_y, valid_id = torch.from_numpy(valid_sample['enc_inputs']).to(device), \
+                                            torch.from_numpy(valid_sample['dec_inputs']).to(device), \
+                                            torch.from_numpy(valid_sample['outputs']).to(device), \
+                                            valid_sample['identifier']
 
     train_en, train_de, train_y, train_id = batching(batch_size, train_en,
                                                              train_de, train_y, train_id)
