@@ -45,6 +45,7 @@ class ScaledDotProductAttention(nn.Module):
         self.d_k = d_k
         self.n_pieces = math.ceil(math.log2(b_size))
         self.softmax = nn.Softmax(dim=-1)
+        self.w_b = nn.Parameter(torch.randn(self.n_pieces), requires_grad=True).to(device)
         self.attn_type = attn_type
         self.self_attn = self_attn
 
@@ -67,8 +68,8 @@ class ScaledDotProductAttention(nn.Module):
             K_shared = K_shared.permute(3, 0, 1, 4, 2)
             k_score = torch.einsum('bhknd, bhkmd-> bhknm', K_shared, K_shared)
             attn_k = self.softmax(k_score)
-            K = torch.einsum('bhknm,bhkmd->bhkd', attn_k, K_shared)
-
+            K = torch.einsum('bhknm,bhkmd->bhknd', attn_k, K_shared)
+            K = torch.einsum('bhknd, n -> bhkd', K, self.w_b)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
             if attn_mask is not None:
