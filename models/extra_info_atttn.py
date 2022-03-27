@@ -43,7 +43,6 @@ class ScaledDotProductAttention(nn.Module):
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
-        self.n_pieces = math.ceil(math.log2(b_size))
         self.softmax = nn.Softmax(dim=-1)
         self.attn_type = attn_type
         self.self_attn = self_attn
@@ -63,9 +62,10 @@ class ScaledDotProductAttention(nn.Module):
 
             b, h, l_k, d = K.shape
             K = K.reshape(l_k, h*d, b)
-            K = F.pad(K, pad=(self.n_pieces - 1, 0, 0, 0))
-            K = K.unfold(-1, self.n_pieces, 1)
-            K_shared = K.reshape(b, h, l_k, self.n_pieces, d)
+            n_pieces = l_k
+            K = F.pad(K, pad=(n_pieces - 1, 0, 0, 0))
+            K = K.unfold(-1, n_pieces, 1)
+            K_shared = K.reshape(b, h, l_k, n_pieces, d)
             K_last = K_shared[:, :, :, -1, :].squeeze(3)
             k_score = torch.einsum('bhkd, bhkmd-> bhkm', K_last, K_shared) / np.sqrt(self.d_k)
             attn_k = self.softmax(k_score)
