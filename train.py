@@ -262,7 +262,7 @@ def evaluate():
 def main():
 
     if args.attn_type == "extra_info_attn":
-        search_space = {"d_model": [16, 32], "num_past_info": [l_b_size, l_b_size*2, l_b_size*4]}
+        search_space = {"d_model": [16, 32], "num_past_info": [l_b_size, l_b_size*3, l_b_size*6]}
     else:
         search_space = {"d_model": [16, 32]}
     study = optuna.create_study(study_name=args.name,
