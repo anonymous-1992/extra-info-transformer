@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser(description="train context-aware attention")
 parser.add_argument("--name", type=str, default='extra_info_attn')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
-parser.add_argument("--n_trials", type=int, default=12)
+parser.add_argument("--n_trials", type=int, default=6)
 parser.add_argument("--cuda", type=str, default='cuda:0')
 parser.add_argument("--attn_type", type=str, default='extra_info_attn')
 args = parser.parse_args()
@@ -50,7 +50,8 @@ test_sample = batch_sampled_data(test, valid_max, params['total_time_steps'],
 
 
 batch_size = 512
-param_history = list()
+l_b_size = math.ceil(math.log2(batch_size))
+
 
 device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
 if torch.cuda.is_available():
@@ -130,16 +131,11 @@ def objective(trial):
     global val_loss
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
-    #lam = trial.suggest_categorical("lam", [0, 0.1, 0.3])
-    l_b_size = math.ceil(math.log2(batch_size))
     if args.attn_type == "extra_info_attn":
         num_past_info = trial.suggest_categorical("num_past_info", [l_b_size, l_b_size*2, l_b_size*4])
     else:
         num_past_info = 0
-    if [d_model, num_past_info] in param_history:
-        print([d_model, num_past_info])
-        raise optuna.exceptions.TrialPruned()
-    param_history.append([d_model, num_past_info])
+
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
@@ -263,8 +259,13 @@ def evaluate():
 
 def main():
 
+    if args.attn_type == "extra_info_attn":
+        search_space = {"d_model": [16, 32], "num_past_info": [l_b_size, l_b_size*2, l_b_size*4]}
+    else:
+        search_space = {"d_model": [16, 32]}
     study = optuna.create_study(study_name=args.name,
-                                direction="minimize", pruner=optuna.pruners.HyperbandPruner())
+                                direction="minimize", pruner=optuna.pruners.HyperbandPruner(),
+                                sampler=optuna.samplers.GridSampler(search_space))
     study.optimize(objective, n_trials=args.n_trials)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
