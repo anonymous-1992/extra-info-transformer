@@ -23,6 +23,7 @@ parser = argparse.ArgumentParser(description="train context-aware attention")
 parser.add_argument("--name", type=str, default='extra_info_attn')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
+parser.add_argument("--n_trials", type=int, default=12)
 parser.add_argument("--cuda", type=str, default='cuda:0')
 parser.add_argument("--attn_type", type=str, default='extra_info_attn')
 args = parser.parse_args()
@@ -49,12 +50,14 @@ test_sample = batch_sampled_data(test, valid_max, params['total_time_steps'],
 
 
 batch_size = 512
+param_history = list()
 
 device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
 if torch.cuda.is_available():
     print("Running on GPU")
 
 model_params = formatter.get_default_model_params()
+param_history = list()
 
 criterion = nn.MSELoss()
 mae = nn.L1Loss()
@@ -105,7 +108,7 @@ torch.autograd.set_detect_anomaly(True)
 L1Loss = nn.L1Loss()
 
 
-def define_model(d_model, n_heads, stack_size, src_input_size, tgt_input_size):
+def define_model(d_model, n_heads, stack_size, num_past_info, src_input_size, tgt_input_size):
 
     d_k = int(d_model / n_heads)
 
@@ -115,7 +118,8 @@ def define_model(d_model, n_heads, stack_size, src_input_size, tgt_input_size):
                  d_ff=d_model * 4,
                  d_k=d_k, d_v=d_k, n_heads=n_heads,
                  n_layers=stack_size, src_pad_index=0,
-                 tgt_pad_index=0, device=device, attn_type=args.attn_type)
+                 tgt_pad_index=0, device=device,
+                attn_type=args.attn_type, num_past_info=num_past_info)
     mdl.to(device)
     return mdl
 
@@ -127,6 +131,15 @@ def objective(trial):
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
     #lam = trial.suggest_categorical("lam", [0, 0.1, 0.3])
+    l_b_size = math.ceil(math.log2(batch_size))
+    if args.attn_type == "extra_info_attn":
+        num_past_info = trial.suggest_categorical("num_past_info", [l_b_size, l_b_size*2, l_b_size*4])
+    else:
+        num_past_info = 0
+    if [d_model, num_past_info] in param_history:
+        print([d_model, num_past_info])
+        raise optuna.exceptions.TrialPruned()
+    param_history.append([d_model, num_past_info])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
@@ -151,7 +164,7 @@ def objective(trial):
     valid_en, valid_de, valid_y, valid_id = \
         valid_en.to(device), valid_de.to(device), valid_y.to(device), valid_id
 
-    model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3])
+    model = define_model(d_model, n_heads, stack_size, num_past_info, train_en.shape[3], train_de.shape[3])
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
@@ -252,7 +265,7 @@ def main():
 
     study = optuna.create_study(study_name=args.name,
                                 direction="minimize", pruner=optuna.pruners.HyperbandPruner())
-    study.optimize(objective, n_trials=2)
+    study.optimize(objective, n_trials=args.n_trials)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
