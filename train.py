@@ -51,7 +51,7 @@ test_sample = batch_sampled_data(test, valid_max, params['total_time_steps'],
 
 batch_size = 512
 l_b_size = math.ceil(math.log2(batch_size))
-
+param_history = list()
 
 device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
 if torch.cuda.is_available():
@@ -135,7 +135,9 @@ def objective(trial):
         num_past_info = trial.suggest_categorical("num_past_info", [l_b_size, l_b_size*2, l_b_size*4])
     else:
         num_past_info = 0
-
+    if [d_model, num_past_info] in param_history:
+        raise optuna.exceptions.TrialPruned()
+    param_history.append([d_model, num_past_info])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
