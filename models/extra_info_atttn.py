@@ -62,7 +62,7 @@ class ScaledDotProductAttention(nn.Module):
 
             b, h, l_k, d = K.shape
             K = K.reshape(l_k, h*d, b)
-            n_pieces = math.ceil(math.log2(l_k))
+            n_pieces = l_k
             K = F.pad(K, pad=(n_pieces - 1, 0, 0, 0))
             K = K.unfold(-1, n_pieces, 1)
             K = K.reshape(b, h, l_k, n_pieces, d)
