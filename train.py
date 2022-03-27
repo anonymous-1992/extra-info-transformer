@@ -59,8 +59,8 @@ model_params = formatter.get_default_model_params()
 criterion = nn.MSELoss()
 mae = nn.L1Loss()
 
-np.random.seed(1234)
-random.seed(1234)
+np.random.seed(21)
+random.seed(21)
 
 torch.manual_seed(args.seed)
 
