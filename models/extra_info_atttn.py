@@ -64,14 +64,15 @@ class ScaledDotProductAttention(nn.Module):
         elif self.attn_type == "extra_info_attn":
 
             b, h, l_k, d = K.shape
+            K_prime = K
             K = K.reshape(l_k, h*d, b)
             n_pieces = self.num_past_info
             K = F.pad(K, pad=(n_pieces - 1, 0, 0, 0))
             K = K.unfold(-1, n_pieces, 1)
-            K = K.reshape(b, h, l_k, n_pieces, d)
-            k_score = torch.einsum('bhkd, bhkmd-> bhkm', K[:, :, :, -1, :], K) / np.sqrt(self.d_k)
+            K = K.reshape(b, h, l_k, n_pieces * d)
+            k_score = torch.einsum('bhqd, bhkd-> bhqk', K, K) / np.sqrt(self.d_k)
             attn_k = self.softmax(k_score)
-            K = torch.einsum('bhkm,bhkmd->bhkd', attn_k, K)
+            K = torch.einsum('bhqk,bhkd->bhkd', attn_k, K_prime)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
             if attn_mask is not None:
