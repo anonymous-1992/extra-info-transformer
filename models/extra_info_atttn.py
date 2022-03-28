@@ -70,7 +70,7 @@ class ScaledDotProductAttention(nn.Module):
             K = F.pad(K, pad=(n_pieces - 1, 0, 0, 0))
             K = K.unfold(-1, n_pieces, 1)
             K = K.reshape(b, h, l_k, n_pieces * d)
-            k_score = torch.einsum('bhqd, bhkd-> bhqk', K, K) / np.sqrt(self.d_k)
+            k_score = torch.einsum('bhqd, bhkd-> bhqk', K, K) / np.sqrt(self.d_k * n_pieces)
             attn_k = self.softmax(k_score)
             K = torch.einsum('bhqk,bhkd->bhkd', attn_k, K_prime)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
