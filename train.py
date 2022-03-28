@@ -24,6 +24,7 @@ parser.add_argument("--name", type=str, default='extra_info_attn')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=6)
+parser.add_argument("--total_steps", type=int, default=216)
 parser.add_argument("--cuda", type=str, default='cuda:0')
 parser.add_argument("--attn_type", type=str, default='extra_info_attn')
 args = parser.parse_args()
@@ -39,13 +40,13 @@ train_data, valid, test = formatter.split_data(raw_data)
 train_max, valid_max = formatter.get_num_samples_for_calibration()
 params = formatter.get_experiment_params()
 
-train_sample = batch_sampled_data(train_data, train_max, params['total_time_steps'],
+train_sample = batch_sampled_data(train_data, train_max, args.total_steps,
                                      params['num_encoder_steps'], params["column_definition"])
 
-valid_sample = batch_sampled_data(valid, valid_max, params['total_time_steps'],
+valid_sample = batch_sampled_data(valid, valid_max, args.total_steps,
                                      params['num_encoder_steps'], params["column_definition"])
 
-test_sample = batch_sampled_data(test, valid_max, params['total_time_steps'],
+test_sample = batch_sampled_data(test, valid_max, args.total_steps,
                                      params['num_encoder_steps'], params["column_definition"])
 
 
@@ -132,7 +133,7 @@ def objective(trial):
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
     if args.attn_type == "extra_info_attn":
-        num_past_info = trial.suggest_categorical("num_past_info", [l_b_size, l_b_size*3, l_b_size*6])
+        num_past_info = trial.suggest_categorical("num_past_info", [l_b_size, l_b_size*2, l_b_size*4])
     else:
         num_past_info = 0
     if [d_model, num_past_info] in param_history:
@@ -222,7 +223,7 @@ def evaluate():
     model = best_model
     model.eval()
 
-    sample_data = batch_sampled_data(test, valid_max, params['total_time_steps'],
+    sample_data = batch_sampled_data(test, valid_max, args.total_steps,
                                      params['num_encoder_steps'], params["column_definition"])
     test_en, test_de, test_y, test_id = torch.from_numpy(sample_data['enc_inputs']), \
                                         torch.from_numpy(sample_data['dec_inputs']), \
@@ -262,7 +263,7 @@ def evaluate():
 def main():
 
     if args.attn_type == "extra_info_attn":
-        search_space = {"d_model": [16, 32], "num_past_info": [l_b_size, l_b_size*3, l_b_size*6]}
+        search_space = {"d_model": [16, 32], "num_past_info": [l_b_size, l_b_size*2, l_b_size*4]}
     else:
         search_space = {"d_model": [16, 32]}
     study = optuna.create_study(study_name=args.name,
@@ -295,7 +296,7 @@ def main():
     error_file[args.name].append("{:.3f}".format(nmae))
 
     res_path = "results_{}_{}.json".format(args.exp_name,
-                                           params['total_time_steps'] - params['num_encoder_steps'])
+                                           args.total_steps - params['num_encoder_steps'])
 
     if os.path.exists(res_path):
         with open(res_path) as json_file:
