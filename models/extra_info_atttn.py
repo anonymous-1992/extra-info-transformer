@@ -117,7 +117,7 @@ class MultiHeadAttention(nn.Module):
 
         batch_size = Q.shape[0]
         q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        if self.attn_type == "extra_info_attn":
+        if self.attn_type == "extra_info_attn" and self.self_attn:
             k_s = K.view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         else:
             k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
@@ -219,7 +219,7 @@ class DecoderLayer(nn.Module):
         self.dec_self_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
             d_v=d_v, n_heads=n_heads, device=device,
-            attn_type=attn_type, num_past_info=num_past_info)
+            attn_type=attn_type, self_attn=False, num_past_info=num_past_info)
         self.dec_enc_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
             d_v=d_v, n_heads=n_heads, device=device,

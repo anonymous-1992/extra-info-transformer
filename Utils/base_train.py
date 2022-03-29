@@ -75,15 +75,11 @@ def batch_sampled_data(data, max_samples, time_steps, num_encoder_steps, column_
 
             split_data_map[identifier] = df
 
-    def takeSecond(elem):
-        return elem[1]
-
     if 0 < max_samples < len(valid_sampling_locations):
         ranges = [
           valid_sampling_locations[i] for i in np.random.choice(
               len(valid_sampling_locations), max_samples, replace=False)
         ]
-        ranges.sort(key=takeSecond)
 
     else:
         print('Max samples={} exceeds # available segments={}'.format(
@@ -92,7 +88,6 @@ def batch_sampled_data(data, max_samples, time_steps, num_encoder_steps, column_
             valid_sampling_locations[i] for i in np.random.choice(
                 len(valid_sampling_locations), len(valid_sampling_locations), replace=False)
         ]
-        ranges.sort(key=takeSecond)
 
     id_col = utils.get_single_col_by_input_type(InputTypes.ID, column_definition)
     time_col = utils.get_single_col_by_input_type(InputTypes.TIME, column_definition)
