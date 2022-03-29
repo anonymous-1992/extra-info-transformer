@@ -76,7 +76,7 @@ def batch_sampled_data(data, max_samples, time_steps, num_encoder_steps, column_
             split_data_map[identifier] = df
 
     def takeSecond(elem):
-        return elem[0], elem[1]
+        return elem[1]
 
     if 0 < max_samples < len(valid_sampling_locations):
         ranges = [
