@@ -40,7 +40,7 @@ class PositionalEncoding(nn.Module):
 
 class ScaledDotProductAttention(nn.Module):
 
-    def __init__(self, d_k, device, num_past_info, n_heads, attn_type, self_attn=True):
+    def __init__(self, d_k, device, num_past_info, attn_type, self_attn=True):
 
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
@@ -49,10 +49,6 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.self_attn = self_attn
         self.num_past_info = num_past_info
-        d_model = n_heads*d_k
-        self.WK_q = nn.Linear(d_model * num_past_info, d_model * num_past_info, bias=False).to(device)
-        self.WK_k = nn.Linear(d_model * num_past_info, d_model * num_past_info, bias=False).to(device)
-        self.WK_v = nn.Linear(d_model, d_model, bias=False).to(device)
 
     def forward(self, Q, K, V, attn_mask):
 
@@ -68,15 +64,13 @@ class ScaledDotProductAttention(nn.Module):
         elif self.attn_type == "extra_info_attn":
 
             b, h, l_k, d = K.shape
-            K = K.reshape(b, l_k, h*d)
-            K_prime = self.WK_v(K).view(b, h, l_k, d)
+            K_prime = K
             K = K.reshape(l_k, h*d, b)
-            K = F.pad(K, pad=(self.num_past_info - 1, 0, 0, 0))
-            K = K.unfold(-1, self.num_past_info, 1)
-            K = K.reshape(b, l_k, self.num_past_info * d * h)
-            Q_K = self.WK_q(K).view(b, h, l_k, -1)
-            K_K = self.WK_k(K).view(b, h, l_k, -1)
-            k_score = torch.einsum('bhqd, bhkd-> bhqk', Q_K, K_K) / np.sqrt(self.d_k * self.num_past_info)
+            n_pieces = self.num_past_info
+            K = F.pad(K, pad=(n_pieces - 1, 0, 0, 0))
+            K = K.unfold(-1, n_pieces, 1)
+            K = K.reshape(b, h, l_k, n_pieces * d)
+            k_score = torch.einsum('bhqd, bhkd-> bhqk', K, K) / np.sqrt(self.d_k * n_pieces)
             attn_k = self.softmax(k_score)
             K = torch.einsum('bhqk,bhkd->bhkd', attn_k, K_prime)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
@@ -112,17 +106,13 @@ class MultiHeadAttention(nn.Module):
 
         batch_size = Q.shape[0]
         q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        if self.attn_type == "extra_info_attn":
-            k_s = K.view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        else:
-            k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         v_s = self.WV(V).view(batch_size, -1, self.n_heads, self.d_v).transpose(1, 2)
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
         context, attn = ScaledDotProductAttention(d_k=self.d_k, device=self.device,
                                                   num_past_info=self.num_past_info,
                                                   attn_type=self.attn_type,
-                                                  n_heads=self.n_heads,
                                                   self_attn=self.self_attn)(
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
