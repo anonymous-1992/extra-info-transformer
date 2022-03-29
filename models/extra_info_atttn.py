@@ -49,9 +49,9 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.self_attn = self_attn
         self.num_past_info = num_past_info
-        self.WK_q = nn.Linear(d_k * num_past_info, d_k * num_past_info, bias=False)
-        self.WK_k = nn.Linear(d_k * num_past_info, d_k * num_past_info, bias=False)
-        self.WK_v = nn.Linear(d_k, d_k, bias=False)
+        self.WK_q = nn.Linear(d_k * num_past_info, d_k * num_past_info, bias=False).to(device)
+        self.WK_k = nn.Linear(d_k * num_past_info, d_k * num_past_info, bias=False).to(device)
+        self.WK_v = nn.Linear(d_k, d_k, bias=False).to(device)
 
     def forward(self, Q, K, V, attn_mask):
 
