@@ -51,6 +51,7 @@ class ScaledDotProductAttention(nn.Module):
         self.num_past_info = num_past_info
         self.WK_q = nn.Linear(d_k * num_past_info, d_k * num_past_info, bias=False)
         self.WK_k = nn.Linear(d_k * num_past_info, d_k * num_past_info, bias=False)
+        self.WK_v = nn.Linear(d_k, d_k, bias=False)
 
     def forward(self, Q, K, V, attn_mask):
 
@@ -66,7 +67,7 @@ class ScaledDotProductAttention(nn.Module):
         elif self.attn_type == "extra_info_attn":
 
             b, h, l_k, d = K.shape
-            K_prime = K
+            K_prime = self.WK_v(K)
             K = K.reshape(l_k, h*d, b)
             K = F.pad(K, pad=(self.num_past_info - 1, 0, 0, 0))
             K = K.unfold(-1, self.num_past_info, 1)
