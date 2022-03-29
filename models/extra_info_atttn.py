@@ -112,13 +112,17 @@ class MultiHeadAttention(nn.Module):
 
         batch_size = Q.shape[0]
         q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        if self.attn_type == "extra_info_attn":
+            k_s = K.view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        else:
+            k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         v_s = self.WV(V).view(batch_size, -1, self.n_heads, self.d_v).transpose(1, 2)
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
         context, attn = ScaledDotProductAttention(d_k=self.d_k, device=self.device,
                                                   num_past_info=self.num_past_info,
                                                   attn_type=self.attn_type,
+                                                  n_heads=self.n_heads,
                                                   self_attn=self.self_attn)(
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
