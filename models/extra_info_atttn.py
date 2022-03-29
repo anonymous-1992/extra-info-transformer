@@ -49,6 +49,8 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.self_attn = self_attn
         self.num_past_info = num_past_info
+        self.WK_q = nn.Linear(d_k * num_past_info, d_k * num_past_info, bias=False)
+        self.WK_k = nn.Linear(d_k * num_past_info, d_k * num_past_info, bias=False)
 
     def forward(self, Q, K, V, attn_mask):
 
@@ -66,11 +68,12 @@ class ScaledDotProductAttention(nn.Module):
             b, h, l_k, d = K.shape
             K_prime = K
             K = K.reshape(l_k, h*d, b)
-            n_pieces = self.num_past_info
-            K = F.pad(K, pad=(n_pieces - 1, 0, 0, 0))
-            K = K.unfold(-1, n_pieces, 1)
-            K = K.reshape(b, h, l_k, n_pieces * d)
-            k_score = torch.einsum('bhqd, bhkd-> bhqk', K, K) / np.sqrt(self.d_k * n_pieces)
+            K = F.pad(K, pad=(self.num_past_info - 1, 0, 0, 0))
+            K = K.unfold(-1, self.num_past_info, 1)
+            K = K.reshape(b, h, l_k, self.num_past_info * d)
+            Q_K = self.WK_q(K)
+            K_K = self.WK_k(K)
+            k_score = torch.einsum('bhqd, bhkd-> bhqk', Q_K, K_K) / np.sqrt(self.d_k * self.num_past_info)
             attn_k = self.softmax(k_score)
             K = torch.einsum('bhqk,bhkd->bhkd', attn_k, K_prime)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
