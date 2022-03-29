@@ -75,11 +75,6 @@ class ScaledDotProductAttention(nn.Module):
             K = torch.einsum('bhqk,bhkd->bhkd', attn_k, K_prime)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
-            if attn_mask is not None:
-                attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-                attn_mask = attn_mask.to(self.device)
-                scores.masked_fill_(attn_mask, -1e9)
-
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
@@ -213,7 +208,7 @@ class DecoderLayer(nn.Module):
         self.dec_enc_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
             d_v=d_v, n_heads=n_heads, device=device,
-            attn_type=attn_type, self_attn=False, num_past_info=num_past_info)
+            attn_type=attn_type, self_attn=True, num_past_info=num_past_info)
         self.pos_ffn = PoswiseFeedForwardNet(
             d_model=d_model, d_ff=d_ff)
         self.layer_norm = nn.LayerNorm(d_model, elementwise_affine=False)
