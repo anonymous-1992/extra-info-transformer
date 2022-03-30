@@ -48,16 +48,17 @@ class ScaledDotProductAttention(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
         self.attn_type = attn_type
         self.self_attn = self_attn
-        self.num_past_info = math.ceil(math.log2(b_size))
-        self.kernel_l_k = math.ceil(l_k / self.num_past_info)
-        self.kernel_b = math.ceil(b_size / self.num_past_info)
-        padding_b = b_size % self.num_past_info
-        padding_l_k = l_k % self.num_past_info
-        self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
-                                out_channels=d_k*n_heads,
-                                kernel_size=(self.kernel_l_k, self.kernel_b),
-                                stride=(self.kernel_l_k, self.kernel_b),
-                                padding=(padding_l_k, padding_b)).to(device)
+        if self.attn_type == "extra_info_attn":
+            self.num_past_info = math.ceil(math.log2(b_size))
+            self.kernel_l_k = math.ceil(l_k / self.num_past_info)
+            self.kernel_b = math.ceil(b_size / self.num_past_info)
+            padding_b = b_size % self.num_past_info
+            padding_l_k = l_k % self.num_past_info
+            self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
+                                    out_channels=d_k*n_heads,
+                                    kernel_size=(self.kernel_l_k, self.kernel_b),
+                                    stride=(self.kernel_l_k, self.kernel_b),
+                                    padding=(padding_l_k, padding_b)).to(device)
 
     def forward(self, Q, K, V, attn_mask):
 
