@@ -50,10 +50,12 @@ class ScaledDotProductAttention(nn.Module):
         self.self_attn = self_attn
         self.num_past_info = num_past_info
         self.kernel = math.ceil(l_k / num_past_info)
+        padding = l_k % num_past_info
         self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                 out_channels=d_k*n_heads,
                                 kernel_size=(self.kernel, 1),
-                                stride=(self.kernel, 1)).to(device)
+                                stride=(self.kernel, 1),
+                                padding=(padding, 0)).to(device)
 
     def forward(self, Q, K, V, attn_mask):
 
@@ -75,7 +77,6 @@ class ScaledDotProductAttention(nn.Module):
             K = F.pad(K, pad=(n_pieces - 1, 0, 0, 0))
             K = K.unfold(-1, n_pieces, 1)
             K = K.reshape(b, h*d, l_k, n_pieces)
-            K = F.pad(K, pad=(0, 0, self.kernel - 1, self.kernel - 1))
             K = self.conv2d(K)
             n = K.shape[-1]
             K = K.view(b, h, n, n, d)
