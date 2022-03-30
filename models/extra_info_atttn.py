@@ -84,7 +84,7 @@ class ScaledDotProductAttention(nn.Module):
             K = K.view(b, h, n*n, d)
             k_score = torch.einsum('bhkd, bhnd-> bhkn', K_prime, K) / np.sqrt(self.d_k)
             attn_k = self.softmax(k_score)
-            K = torch.einsum('bhqn,bhnd->bhqd', attn_k, K)
+            K = torch.einsum('bhkn,bhnd->bhkd', attn_k, K)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
             attn = self.softmax(scores)
