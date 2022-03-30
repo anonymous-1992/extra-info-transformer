@@ -53,7 +53,7 @@ class ScaledDotProductAttention(nn.Module):
         padding = l_k % num_past_info
         self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                 out_channels=d_k*n_heads,
-                                kernel_size=(self.kernel, 1),
+                                kernel_size=(self.kernel, self.kernel),
                                 stride=(self.kernel, 1),
                                 padding=(padding, 0)).to(device)
 
@@ -79,10 +79,10 @@ class ScaledDotProductAttention(nn.Module):
             K = K.reshape(b, h*d, l_k, n_pieces)
             K = self.conv2d(K)
             n = K.shape[-1]
-            K = K.view(b, h, n, n, d)
-            k_score = torch.einsum('bhkd, bhnmd-> bhknm', K_prime, K) / np.sqrt(self.d_k)
+            K = K.view(b, h, n*n, d)
+            k_score = torch.einsum('bhkd, bhnd-> bhkn', K_prime, K) / np.sqrt(self.d_k)
             attn_k = self.softmax(k_score)
-            K = torch.einsum('bhqnm,bhnmd->bhqd', attn_k, K)
+            K = torch.einsum('bhqn,bhnd->bhqd', attn_k, K)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
             attn = self.softmax(scores)
