@@ -53,7 +53,7 @@ class ScaledDotProductAttention(nn.Module):
         self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                 out_channels=d_k*n_heads,
                                 kernel_size=(self.kernel, 1),
-                                stride=(self.kernel, 1))
+                                stride=(self.kernel, 1)).to(device)
 
     def forward(self, Q, K, V, attn_mask):
 
