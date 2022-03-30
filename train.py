@@ -135,7 +135,7 @@ def objective(trial):
     if args.attn_type == "extra_info_attn":
         num_past_info = trial.suggest_categorical("num_past_info", [l_b_size*2])
     else:
-        num_past_info = 0
+        num_past_info = 1
     if [d_model, num_past_info] in param_history:
         raise optuna.exceptions.TrialPruned()
     param_history.append([d_model, num_past_info])
