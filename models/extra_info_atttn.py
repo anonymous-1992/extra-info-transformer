@@ -40,7 +40,7 @@ class PositionalEncoding(nn.Module):
 
 class ScaledDotProductAttention(nn.Module):
 
-    def __init__(self, d_k, device, num_past_info, attn_type, self_attn=True):
+    def __init__(self, d_k, device, n_heads, l_k, num_past_info, attn_type, self_attn=True):
 
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
@@ -49,6 +49,11 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.self_attn = self_attn
         self.num_past_info = num_past_info
+        self.kernel = math.ceil(l_k / num_past_info)
+        self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
+                                out_channels=d_k*n_heads,
+                                kernel_size=(self.kernel, 1),
+                                stride=(self.kernel, 1))
 
     def forward(self, Q, K, V, attn_mask):
 
@@ -69,10 +74,14 @@ class ScaledDotProductAttention(nn.Module):
             n_pieces = self.num_past_info
             K = F.pad(K, pad=(n_pieces - 1, 0, 0, 0))
             K = K.unfold(-1, n_pieces, 1)
-            K = K.reshape(b, h, l_k, n_pieces * d)
-            k_score = torch.einsum('bhqd, bhkd-> bhqk', K, K) / np.sqrt(self.d_k * n_pieces)
+            K = K.reshape(b, h*d, l_k, n_pieces)
+            K = F.pad(K, pad=(0, 0, self.kernel - 1, self.kernel - 1))
+            K = self.conv2d(K)
+            n = K.shape[-1]
+            K = K.view(b, h, n, n, d)
+            k_score = torch.einsum('bhkd, bhnmd-> bhknm', K_prime, K) / np.sqrt(self.d_k)
             attn_k = self.softmax(k_score)
-            K = torch.einsum('bhqk,bhkd->bhkd', attn_k, K_prime)
+            K = torch.einsum('bhqnm,bhnmd->bhqd', attn_k, K)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
             attn = self.softmax(scores)
@@ -110,7 +119,10 @@ class MultiHeadAttention(nn.Module):
         v_s = self.WV(V).view(batch_size, -1, self.n_heads, self.d_v).transpose(1, 2)
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
-        context, attn = ScaledDotProductAttention(d_k=self.d_k, device=self.device,
+        context, attn = ScaledDotProductAttention(d_k=self.d_k,
+                                                  device=self.device,
+                                                  n_heads=self.n_heads,
+                                                  l_k=k_s.shape[2],
                                                   num_past_info=self.num_past_info,
                                                   attn_type=self.attn_type,
                                                   self_attn=self.self_attn)(
