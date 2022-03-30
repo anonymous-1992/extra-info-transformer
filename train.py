@@ -133,7 +133,7 @@ def objective(trial):
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
     if args.attn_type == "extra_info_attn":
-        num_past_info = trial.suggest_categorical("num_past_info", [l_b_size*2])
+        num_past_info = trial.suggest_categorical("num_past_info", [l_b_size])
     else:
         num_past_info = 1
     if [d_model, num_past_info] in param_history:
@@ -263,7 +263,7 @@ def evaluate():
 def main():
 
     if args.attn_type == "extra_info_attn":
-        search_space = {"d_model": [16, 32], "num_past_info": [l_b_size*2]}
+        search_space = {"d_model": [16, 32], "num_past_info": [l_b_size]}
     else:
         search_space = {"d_model": [16, 32]}
     study = optuna.create_study(study_name=args.name,
