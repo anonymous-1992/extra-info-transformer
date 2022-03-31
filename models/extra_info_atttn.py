@@ -154,7 +154,7 @@ class EncoderLayer(nn.Module):
             d_model=d_model, d_k=d_k,
             d_v=d_v, n_heads=n_heads,
             device=device,
-            attn_type=attn_type, enc_attn=True)
+            attn_type=attn_type)
         self.pos_ffn = PoswiseFeedForwardNet(
             d_model=d_model, d_ff=d_ff)
         self.layer_norm = nn.LayerNorm(d_model, elementwise_affine=False)
