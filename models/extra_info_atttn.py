@@ -40,14 +40,14 @@ class PositionalEncoding(nn.Module):
 
 class ScaledDotProductAttention(nn.Module):
 
-    def __init__(self, d_k, device, n_heads, l_k, b_size, attn_type, self_attn=True):
+    def __init__(self, d_k, device, n_heads, l_k, b_size, attn_type, cross_attn=False):
 
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
         self.softmax = nn.Softmax(dim=-1)
         self.attn_type = attn_type
-        self.self_attn = self_attn
+        self.cross_attn = cross_attn
         if self.attn_type == "extra_info_attn":
             self.num_past_info = math.ceil(math.log2(b_size))
             self.kernel_l_k = math.ceil(l_k / self.num_past_info)
@@ -62,7 +62,7 @@ class ScaledDotProductAttention(nn.Module):
 
     def forward(self, Q, K, V, attn_mask):
 
-        if self.attn_type == "basic_attn" or not self.self_attn:
+        if self.attn_type == "basic_attn" or not self.cross_attn:
             scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
@@ -85,7 +85,7 @@ class ScaledDotProductAttention(nn.Module):
             k_score = torch.einsum('bhkd,bhnd-> bhkn', K_prime, K) / np.sqrt(self.d_k)
             attn_k = self.softmax(k_score)
             K = torch.einsum('bhkn,bhnd->bhkd', attn_k, K)
-            scores = torch.zeros(2, b, h, Q.shape[2],l_k)
+            scores = torch.zeros(2, b, h, Q.shape[2], l_k)
             scores[0] = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
             scores[1] = torch.einsum('bhqd,bhkd->bhqk', Q, K_prime) / np.sqrt(self.d_k)
 
@@ -98,7 +98,7 @@ class ScaledDotProductAttention(nn.Module):
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, d_model, d_k, d_v, n_heads, device, attn_type, self_attn=True):
+    def __init__(self, d_model, d_k, d_v, n_heads, device, attn_type, cross_attn=False):
 
         super(MultiHeadAttention, self).__init__()
 
@@ -114,7 +114,7 @@ class MultiHeadAttention(nn.Module):
         self.d_v = d_v
         self.n_heads = n_heads
         self.attn_type = attn_type
-        self.self_attn = self_attn
+        self.cross_attn = cross_attn
 
     def forward(self, Q, K, V, attn_mask):
 
@@ -130,7 +130,7 @@ class MultiHeadAttention(nn.Module):
                                                   l_k=k_s.shape[2],
                                                   b_size=batch_size,
                                                   attn_type=self.attn_type,
-                                                  self_attn=self.self_attn)(
+                                                  cross_attn=self.cross_attn)(
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         output = self.fc(context)
@@ -218,11 +218,11 @@ class DecoderLayer(nn.Module):
         self.dec_self_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
             d_v=d_v, n_heads=n_heads, device=device,
-            attn_type=attn_type, self_attn=False)
+            attn_type=attn_type)
         self.dec_enc_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
             d_v=d_v, n_heads=n_heads, device=device,
-            attn_type=attn_type, self_attn=False)
+            attn_type=attn_type, cross_attn=True)
         self.pos_ffn = PoswiseFeedForwardNet(
             d_model=d_model, d_ff=d_ff)
         self.layer_norm = nn.LayerNorm(d_model, elementwise_affine=False)
