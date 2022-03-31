@@ -51,14 +51,12 @@ class ScaledDotProductAttention(nn.Module):
         if self.attn_type == "extra_info_attn":
             self.num_past_info = math.ceil(math.log2(b_size))
             self.kernel_l_k = math.ceil(l_k / self.num_past_info)
-            self.kernel_b = math.ceil(b_size / self.num_past_info)
-            padding_b = b_size % self.num_past_info
-            padding_l_k = l_k % self.num_past_info
+            padding = int((self.kernel_l_k - 1) / 2)
             self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                     out_channels=d_k*n_heads,
-                                    kernel_size=(self.kernel_l_k, self.kernel_b),
-                                    stride=(self.kernel_l_k, self.kernel_b),
-                                    padding=(padding_l_k, padding_b)).to(device)
+                                    kernel_size=(self.kernel_l_k, 1),
+                                    padding=(padding, 0)).to(device)
+            self.max_pooling = nn.MaxPool2d(kernel_size=(self.kernel_l_k, 1), padding=(padding, 0))
 
     def forward(self, Q, K, V, attn_mask):
 
@@ -76,10 +74,10 @@ class ScaledDotProductAttention(nn.Module):
             b, h, l_k, d = K.shape
             K_prime = K
             K = K.reshape(l_k, h*d, b)
-            K = F.pad(K, pad=(b - 1, 0, 0, 0))
-            K = K.unfold(-1, b, 1)
-            K = K.reshape(b, h*d, l_k, b)
-            K = self.conv2d(K)
+            K = F.pad(K, pad=(self.num_past_info - 1, 0, 0, 0))
+            K = K.unfold(-1, self.num_past_info, 1)
+            K = K.reshape(b, h*d, l_k, self.num_past_info)
+            K = self.max_pooling(self.conv2d(K))
             n = K.shape[-1]
             K = K.view(b, h, n*n, d)
             k_score = torch.einsum('bhkd,bhnd-> bhkn', K_prime, K) / np.sqrt(self.d_k)
