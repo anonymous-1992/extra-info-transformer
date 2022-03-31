@@ -68,7 +68,6 @@ np.random.seed(21)
 random.seed(21)
 
 torch.manual_seed(args.seed)
-torch.backends.cudnn.deterministic = True
 
 val_loss = 1e10
 best_model = nn.Module()
