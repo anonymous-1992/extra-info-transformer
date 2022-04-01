@@ -67,7 +67,7 @@ class ScaledDotProductAttention(nn.Module):
         tnsr = F.pad(tnsr, pad=(b - 1, 0, 0, 0))
         tnsr = tnsr.unfold(-1, b, 1)
         tnsr = tnsr.reshape(b, h * d, l_k, b)
-        tnsr = self.max_pooling(self.conv2d(tnsr))
+        tnsr = self.max_pooling(self.conv2d(tnsr[:, :, :, :-1]))
         n = tnsr.shape[-1]
         tnsr = tnsr.view(b, h, n * n, d)
         return tnsr
