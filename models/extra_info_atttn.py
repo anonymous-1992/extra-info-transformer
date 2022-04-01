@@ -57,8 +57,8 @@ class ScaledDotProductAttention(nn.Module):
             self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                     out_channels=d_k*n_heads,
                                     kernel_size=(self.kernel_l_k, self.kernel_b),
-                                    padding=(padding_l_k, padding_b),
-                                    stride=(self.kernel_l_k, self.kernel_b)).to(device)
+                                    padding=(padding_l_k, padding_b)).to(device)
+            self.max_pooling = nn.MaxPool2d(kernel_size=(self.kernel_l_k, self.kernel_b))
 
     def get_new_rep(self, tnsr):
 
@@ -67,7 +67,7 @@ class ScaledDotProductAttention(nn.Module):
         tnsr = F.pad(tnsr, pad=(b - 1, 0, 0, 0))
         tnsr = tnsr.unfold(-1, b, 1)
         tnsr = tnsr.reshape(b, h * d, l_k, b)
-        tnsr = self.conv2d(tnsr)
+        tnsr = self.max_pooling(self.conv2d(tnsr))
         n = tnsr.shape[-1]
         tnsr = tnsr.view(b, h, n * n, d)
         return tnsr
@@ -88,6 +88,7 @@ class ScaledDotProductAttention(nn.Module):
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
             n = K_e.shape[2]
+
             K[:, :, -n:, :] = K_e
             V[:, :, -n:, :] = V_e
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
