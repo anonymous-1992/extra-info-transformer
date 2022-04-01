@@ -59,12 +59,6 @@ class ScaledDotProductAttention(nn.Module):
                                     kernel_size=(self.kernel_l_k, self.kernel_b),
                                     padding=(padding_l_k, padding_b),
                                     stride=(self.kernel_l_k, self.kernel_b)).to(device)
-            self.conv1d_k = nn.Conv1d(in_channels=d_k*n_heads,
-                                      out_channels=d_k*n_heads,
-                                      kernel_size=2, stride=2).to(device)
-            self.conv1d_v = nn.Conv1d(in_channels=d_k * n_heads,
-                                      out_channels=d_k * n_heads,
-                                      kernel_size=2, stride=2).to(device)
 
     def get_new_rep(self, tnsr):
 
@@ -90,15 +84,12 @@ class ScaledDotProductAttention(nn.Module):
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
         elif self.attn_type == "extra_info_attn":
-            b, h, l_k, d = K.shape
+
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
-            K = K.reshape(b, h*d, l_k)
-            V = V.reshape(b, h*d, l_k)
-            K_conv = self.conv1d_k(K).view(b, h, -1, d)
-            V_conv = self.conv1d_k(V).view(b, h, -1, d)
-            K = torch.cat((K_e, K_conv), dim=2)
-            V = torch.cat((V_e, V_conv), dim=2)
+            n = K_e.shape[2]
+            K[:, :, -n:, :] = K_e
+            V[:, :, -n:, :] = V_e
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
