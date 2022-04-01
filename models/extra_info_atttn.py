@@ -60,6 +60,21 @@ class ScaledDotProductAttention(nn.Module):
                                     padding=(padding_l_k, padding_b),
                                     stride=(self.kernel_l_k, self.kernel_b)).to(device)
 
+    def get_new_rep(self, tnsr):
+        b, h, l_k, d = tnsr.shape
+        tnsr_p = tnsr
+        tnsr = tnsr.reshape(l_k, h * d, b)
+        tnsr = F.pad(tnsr, pad=(b - 1, 0, 0, 0))
+        tnsr = tnsr.unfold(-1, b, 1)
+        tnsr = tnsr.reshape(b, h * d, l_k, b)
+        tnsr = self.conv2d(tnsr)
+        n = tnsr.shape[-1]
+        tnsr = tnsr.view(b, h, n * n, d)
+        tnsr_score = torch.einsum('bhkd,bhnd-> bhkn', tnsr_p, tnsr) / np.sqrt(self.d_k)
+        attn_k = self.softmax(tnsr_score)
+        tnsr = torch.einsum('bhkn,bhnd->bhkd', attn_k, tnsr)
+        return tnsr
+
     def forward(self, Q, K, V, attn_mask):
 
         if self.attn_type == "basic_attn" or not self.enc_attn:
@@ -73,24 +88,8 @@ class ScaledDotProductAttention(nn.Module):
 
         elif self.attn_type == "extra_info_attn":
 
-            b, h, l_k, d = K.shape
-
-            def get_new_rep(tnsr):
-                tnsr_p = tnsr
-                tnsr = tnsr.reshape(l_k, h*d, b)
-                tnsr = F.pad(tnsr, pad=(b - 1, 0, 0, 0))
-                tnsr = tnsr.unfold(-1, b, 1)
-                tnsr = tnsr.reshape(b, h*d, l_k, b)
-                tnsr = self.conv2d(tnsr)
-                n = tnsr.shape[-1]
-                tnsr = tnsr.view(b, h, n*n, d)
-                tnsr_score = torch.einsum('bhkd,bhnd-> bhkn', tnsr_p, tnsr) / np.sqrt(self.d_k)
-                attn_k = self.softmax(tnsr_score)
-                tnsr = torch.einsum('bhkn,bhnd->bhkd', attn_k, tnsr)
-                return tnsr
-
-            K = get_new_rep(K)
-            V = get_new_rep(V)
+            K = self.get_new_rep(K)
+            V = self.get_new_rep(V)
             scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
