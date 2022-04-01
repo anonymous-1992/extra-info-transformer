@@ -63,7 +63,6 @@ class ScaledDotProductAttention(nn.Module):
     def get_new_rep(self, tnsr):
 
         b, h, l_k, d = tnsr.shape
-        tnsr_p = tnsr
         tnsr = tnsr.reshape(l_k, h * d, b)
         tnsr = F.pad(tnsr, pad=(b - 1, 0, 0, 0))
         tnsr = tnsr.unfold(-1, b, 1)
@@ -88,11 +87,12 @@ class ScaledDotProductAttention(nn.Module):
 
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
-            scores = torch.einsum('bhkd,bhnd-> bhkn', Q, K_e) / np.sqrt(self.d_k)
-            attn_1 = self.softmax(scores)
-            scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
+            n = K_e.shape[2]
+            K[:, :, -n:, :] = K_e
+            V[:, :, -n:, :] = V_e
+            scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
-            context = torch.einsum('bhqn,bhnd->bhqd', attn_1, V_e) + torch.einsum('bhqk,bhkd->bhqd', attn, V)
+            context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
         return context, attn
 
