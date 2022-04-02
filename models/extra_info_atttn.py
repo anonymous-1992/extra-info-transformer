@@ -59,8 +59,6 @@ class ScaledDotProductAttention(nn.Module):
                                     kernel_size=(self.kernel_l_k, self.kernel_b),
                                     padding=(padding_l_k, padding_b),
                                     stride=(self.kernel_l_k, self.kernel_b)).to(device)
-            self.max_pooling = nn.MaxPool1d(kernel_size=2, stride=2)
-            self.pos_enc = PositionalEncoding(d_k*n_heads, device)
 
     def get_new_rep(self, tnsr):
 
@@ -87,14 +85,11 @@ class ScaledDotProductAttention(nn.Module):
 
         elif self.attn_type == "extra_info_attn":
 
-            b, h, l_k, d = K.shape
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
             n = K_e.shape[2]
             K[:, :, -n:, :] = K_e
             V[:, :, -n:, :] = V_e
-            K = self.pos_enc(K.reshape(b, l_k, h * d)).view(b, h, -1, d)
-            V = self.pos_enc(V.reshape(b, l_k, h * d)).view(b, h, -1, d)
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
