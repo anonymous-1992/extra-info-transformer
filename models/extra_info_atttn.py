@@ -58,7 +58,8 @@ class ScaledDotProductAttention(nn.Module):
                                     out_channels=d_k*n_heads,
                                     kernel_size=(self.kernel_l_k, self.kernel_b),
                                     padding=(padding_l_k, padding_b)).to(device)
-            self.max_pooling = nn.MaxPool2d(kernel_size=(self.kernel_l_k, self.kernel_b))
+            self.max_pooling = nn.MaxPool2d(kernel_size=(self.kernel_l_k, self.kernel_b),
+                                            padding=(padding_l_k, padding_b))
 
     def get_new_rep(self, tnsr):
 
