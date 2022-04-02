@@ -66,6 +66,7 @@ class ScaledDotProductAttention(nn.Module):
                                       out_channels=d_k * n_heads,
                                       kernel_size=2, stride=1).to(device)
             self.max_pooling = nn.MaxPool1d(kernel_size=2, stride=2)
+            self.pos_enc = PositionalEncoding(d_k*n_heads, device)
 
     def get_new_rep(self, tnsr):
 
@@ -100,6 +101,8 @@ class ScaledDotProductAttention(nn.Module):
             V_conv = self.max_pooling(self.conv1d_k(V)).view(b, h, -1, d)
             K = torch.cat((K_e, K_conv), dim=2)
             V = torch.cat((V_e, V_conv), dim=2)
+            K = self.pos_enc(K.view(b, -1, h*d)).view(b, h, -1, d)
+            V = self.pos_enc(V.view(b, -1, h*d)).view(b, h, -1, d)
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
