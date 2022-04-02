@@ -34,8 +34,12 @@ class PositionalEncoding(nn.Module):
 
         return torch.FloatTensor(sinusoid_table).unsqueeze(0).to(self.device)
 
-    def forward(self, x):
-        return x + self.pos_table[:, :x.size(1)].clone().detach()
+    def forward(self, x, rest=False):
+        if rest:
+            return x - self.pos_table[:, :x.size(1)].clone().detach()
+        else:
+            return x + self.pos_table[:, :x.size(1)].clone().detach()
+
 
 
 class ScaledDotProductAttention(nn.Module):
@@ -87,14 +91,13 @@ class ScaledDotProductAttention(nn.Module):
 
         elif self.attn_type == "extra_info_attn":
             b, h, l_k, d = K.shape
-            K_e = self.get_new_rep(K)
-            V_e = self.get_new_rep(V)
-            K = K.reshape(b, h*d, l_k)
-            V = V.reshape(b, h*d, l_k)
-            K_conv = self.max_pooling(K).view(b, h, -1, d)
-            V_conv = self.max_pooling(V).view(b, h, -1, d)
-            K = torch.cat((K_e, K_conv), dim=2)
-            V = torch.cat((V_e, V_conv), dim=2)
+            K = self.pos_enc(K.reshape(b, l_k, h*d), True).reshape(b, h, l_k, d)
+            V = self.pos_enc(V.reshape(b, l_k, h*d), True).reshape(b, h, l_k, d)
+            K_e = self.get_new_rep(K.reshape(b, h, l_k, d))
+            V_e = self.get_new_rep(V.reshape(b, h, l_k, d))
+            n = K_e.shape[2]
+            K[:, :, -n:, :] = K_e
+            V[:, :, -n:, :] = V_e
             K = self.pos_enc(K.view(b, -1, h*d)).view(b, h, -1, d)
             V = self.pos_enc(V.view(b, -1, h*d)).view(b, h, -1, d)
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
