@@ -50,7 +50,8 @@ test_sample = batch_sampled_data(test, valid_max, args.total_steps,
                                      params['num_encoder_steps'], params["column_definition"])
 
 
-batch_size = 256
+batch_size = 512
+log_b_size = math.ceil(math.log2(batch_size))
 l_b_size = math.ceil(math.log2(batch_size))
 param_history = list()
 
@@ -110,7 +111,7 @@ torch.autograd.set_detect_anomaly(True)
 L1Loss = nn.L1Loss()
 
 
-def define_model(d_model, n_heads, stack_size, src_input_size, tgt_input_size):
+def define_model(d_model, n_ext_info, n_heads, stack_size, src_input_size, tgt_input_size):
 
     d_k = int(d_model / n_heads)
 
@@ -121,7 +122,8 @@ def define_model(d_model, n_heads, stack_size, src_input_size, tgt_input_size):
                  d_k=d_k, d_v=d_k, n_heads=n_heads,
                  n_layers=stack_size, src_pad_index=0,
                  tgt_pad_index=0, device=device,
-                attn_type=args.attn_type)
+                attn_type=args.attn_type,
+                n_ext_info=n_ext_info)
     mdl.to(device)
     return mdl
 
@@ -132,9 +134,10 @@ def objective(trial):
     global val_loss
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
-    if [d_model] in param_history:
+    n_ext_info = trial.suggest_categorical("n_ext_info", [l_b_size*4, l_b_size*2, log_b_size])
+    if [d_model, n_ext_info] in param_history:
         raise optuna.exceptions.TrialPruned()
-    param_history.append([d_model])
+    param_history.append([d_model, n_ext_info])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
@@ -159,7 +162,7 @@ def objective(trial):
     valid_en, valid_de, valid_y, valid_id = \
         valid_en.to(device), valid_de.to(device), valid_y.to(device), valid_id
 
-    model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3])
+    model = define_model(d_model, n_ext_info, n_heads, stack_size, train_en.shape[3], train_de.shape[3])
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
@@ -258,7 +261,7 @@ def evaluate():
 
 def main():
 
-    search_space = {"d_model": [16, 32]}
+    search_space = {"d_model": [16, 32], "n_ext_info": [log_b_size*4, log_b_size*2, log_b_size]}
     study = optuna.create_study(study_name=args.name,
                                 direction="minimize", pruner=optuna.pruners.HyperbandPruner(),
                                 sampler=optuna.samplers.GridSampler(search_space))
