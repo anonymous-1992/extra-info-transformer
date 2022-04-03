@@ -90,10 +90,11 @@ class ScaledDotProductAttention(nn.Module):
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
             n = K_e.shape[2]
-            K_l = torch.einsum('bhnd,n->bhnd', K_e, self.linear_k) + \
-                  torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - self.linear_k)
-            V_l = torch.einsum('bhnd,n->bhnd', V_e, self.linear_k) + \
-                  torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - self.linear_k)
+            n_linear = self.softmax(self.linear_k)
+            K_l = torch.einsum('bhnd,n->bhnd', K_e, n_linear) + \
+                  torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - n_linear)
+            V_l = torch.einsum('bhnd,n->bhnd', V_e, n_linear) + \
+                  torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - n_linear)
             K[:, :, -n:, :] = K_l
             V[:, :, -n:, :] = V_l
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
