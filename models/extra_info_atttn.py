@@ -60,7 +60,7 @@ class ScaledDotProductAttention(nn.Module):
                                     padding=(padding_l_k, padding_b),
                                     stride=(self.kernel_l_k, self.kernel_b)).to(device)
             b = self.num_past_info
-            self.linear_k = nn.Parameter(torch.randn(b*b),requires_grad=True)
+            self.linear_k = nn.Parameter(torch.randn(b*b),requires_grad=True).to(device)
 
     def get_new_rep(self, tnsr):
 
