@@ -134,7 +134,10 @@ def objective(trial):
     global val_loss
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
-    n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size, log_b_size*4])
+    if args.attn_type == "extra_info_attn":
+        n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size, log_b_size*4])
+    else:
+        n_ext_info = 0
     if [d_model, n_ext_info] in param_history:
         raise optuna.exceptions.TrialPruned()
     param_history.append([d_model, n_ext_info])
