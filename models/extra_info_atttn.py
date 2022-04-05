@@ -318,7 +318,7 @@ class Attn(nn.Module):
         self.decoder = Decoder(
             d_model=d_model, d_ff=d_ff,
             d_k=d_k, d_v=d_v, n_heads=n_heads,
-            n_layers=1, pad_index=tgt_pad_index,
+            n_layers=n_layers, pad_index=tgt_pad_index,
             device=device, attn_type=attn_type, n_ext_info=n_ext_info)
 
         self.enc_embedding = nn.Linear(src_input_size, d_model)
