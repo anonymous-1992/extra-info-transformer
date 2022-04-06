@@ -135,7 +135,7 @@ def objective(trial):
 
     d_model = trial.suggest_categorical("d_model", [64, 16, 32])
     if args.attn_type == "extra_info_attn":
-        n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size, log_b_size*4, log_b_size*8])
+        n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size])
     else:
         n_ext_info = 0
     if [d_model, n_ext_info] in param_history:
