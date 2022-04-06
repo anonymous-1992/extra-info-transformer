@@ -116,14 +116,14 @@ def define_model(d_model, n_ext_info, n_heads, stack_size, src_input_size, tgt_i
     d_k = int(d_model / n_heads)
 
     mdl = Attn(src_input_size=src_input_size,
-                 tgt_input_size=tgt_input_size,
-                 d_model=d_model,
-                 d_ff=d_model * 4,
-                 d_k=d_k, d_v=d_k, n_heads=n_heads,
-                 n_layers=stack_size, src_pad_index=0,
-                 tgt_pad_index=0, device=device,
-                attn_type=args.attn_type,
-                n_ext_info=n_ext_info)
+               tgt_input_size=tgt_input_size,
+               d_model=d_model,
+               d_ff=d_model * 4,
+               d_k=d_k, d_v=d_k, n_heads=n_heads,
+               n_layers=stack_size, src_pad_index=0,
+               tgt_pad_index=0, device=device,
+               attn_type=args.attn_type,
+               n_ext_info=n_ext_info)
     mdl.to(device)
     return mdl
 
@@ -133,9 +133,9 @@ def objective(trial):
     global best_model
     global val_loss
 
-    d_model = trial.suggest_categorical("d_model", [16, 32])
+    d_model = trial.suggest_categorical("d_model", [16])
     if args.attn_type == "extra_info_attn":
-        n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size, log_b_size*4, log_b_size*8])
+        n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size*8, log_b_size*4, log_b_size])
     else:
         n_ext_info = 0
     if [d_model, n_ext_info] in param_history:
@@ -264,7 +264,7 @@ def evaluate():
 
 def main():
 
-    search_space = {"d_model": [16, 32], "n_ext_info": [log_b_size, log_b_size*4, log_b_size*8]}
+    search_space = {"d_model": [16], "n_ext_info": [log_b_size*8, log_b_size*4, log_b_size]}
     study = optuna.create_study(study_name=args.name,
                                 direction="minimize", pruner=optuna.pruners.HyperbandPruner(),
                                 sampler=optuna.samplers.GridSampler(search_space))

@@ -34,7 +34,7 @@ random.seed(21)
 
 
 class ExperimentConfig(object):
-    default_experiments = ['electricity', 'traffic', 'air_quality', 'favorita', 'watershed', 'solar']
+    default_experiments = ['electricity', 'traffic', 'air_quality', 'favorita', 'watershed', 'solar', 'camel']
 
     def __init__(self, experiment='electricity', root_folder=None):
 
@@ -64,7 +64,8 @@ class ExperimentConfig(object):
             'air_quality': 'hourly_air_quality.csv',
             'favorita': 'favorita_consolidated.csv',
             'watershed': 'watershed.csv',
-            'solar': 'solar.csv'
+            'solar': 'solar.csv',
+            'camel': 'camel.csv'
         }
 
         return os.path.join(self.data_folder, csv_map[self.experiment])
@@ -161,6 +162,21 @@ def process_watershed(config):
     output.to_csv("watershed.csv")
 
     print('Done.')
+
+
+def download_camel(args):
+
+    """Downloads camel dataset"""
+    url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
+    data_folder = args.data_folder
+    csv_path = os.path.join(data_folder, '')
+    zip_path = csv_path + '.zip'
+
+    download_and_unzip(url, zip_path, csv_path, data_folder)
+
+    df = pd.read_csv(csv_path, index_col=0, sep=';', decimal=',')
+    df.index = pd.to_datetime(df.index)
+    df.sort_index(inplace=True)
 
 
 def download_electricity(args):
@@ -400,6 +416,7 @@ def main(expt_name, force_download, output_folder):
         'electricity': download_electricity,
         'traffic': download_traffic,
         'watershed': process_watershed,
+        'camel': download_camel
     }
 
     if expt_name not in download_functions:
