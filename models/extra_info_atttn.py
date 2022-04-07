@@ -63,8 +63,11 @@ class ScaledDotProductAttention(nn.Module):
             self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                     out_channels=d_k*n_heads,
                                     kernel_size=(self.kernel_l_k, 1),
-                                    stride=(self.kernel_l_k, 1),
+                                    stride=(4, 1),
                                     padding=(padding_l_k, 0)).to(device)
+            kernel = math.ceil(self.kernel_l_k / 4)
+            padding = int((kernel - 1) / 2)
+            self.max_pooling_1 = nn.MaxPool2d(kernel_size=(kernel, 1), padding=(padding, 0))
             self.max_pooling_2 = nn.MaxPool2d(kernel_size=(1, self.kernel_b), padding=(0, padding_b))
             n = self.num_past_info
             self.linear_k = nn.Parameter(torch.randn(n*n), requires_grad=True).to(device)
@@ -77,7 +80,7 @@ class ScaledDotProductAttention(nn.Module):
         tnsr = tnsr.unfold(-1, self.n_ext_info, 1)
 
         tnsr = tnsr.reshape(b, h * d, l_k, self.n_ext_info)
-        tnsr = self.conv2d(tnsr)
+        tnsr = self.max_pooling_1(self.conv2d(tnsr))
         tnsr = self.max_pooling_2(tnsr)
         n = tnsr.shape[-1]
         tnsr = tnsr.view(b, h, n * n, d)
