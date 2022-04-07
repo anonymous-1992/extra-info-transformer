@@ -264,7 +264,7 @@ def evaluate():
 
 def main():
 
-    search_space = {"d_model": [32, 16], "n_ext_info": [log_b_size*8, log_b_size]}
+    search_space = {"d_model": [16], "n_ext_info": [log_b_size*8, log_b_size]}
     study = optuna.create_study(study_name=args.name,
                                 direction="minimize", pruner=optuna.pruners.HyperbandPruner(),
                                 sampler=optuna.samplers.GridSampler(search_space))
