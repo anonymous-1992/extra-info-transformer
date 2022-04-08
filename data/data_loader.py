@@ -25,16 +25,16 @@ import sys
 import random
 import gc
 import glob
-import datetime
 
-from data import electricity, traffic, watershed
+
+from data import air_quality, electricity, traffic, watershed, solar
 
 np.random.seed(21)
 random.seed(21)
 
 
 class ExperimentConfig(object):
-    default_experiments = ['electricity', 'traffic', 'air_quality', 'favorita', 'watershed', 'solar', 'camel']
+    default_experiments = ['electricity', 'traffic', 'air_quality', 'favorita', 'watershed', 'solar']
 
     def __init__(self, experiment='electricity', root_folder=None):
 
@@ -64,8 +64,7 @@ class ExperimentConfig(object):
             'air_quality': 'hourly_air_quality.csv',
             'favorita': 'favorita_consolidated.csv',
             'watershed': 'watershed.csv',
-            'solar': 'solar.csv',
-            'camel': 'camel.csv'
+            'solar': 'solar.csv'
         }
 
         return os.path.join(self.data_folder, csv_map[self.experiment])
@@ -79,7 +78,9 @@ class ExperimentConfig(object):
         data_formatter_class = {
             'electricity': electricity.ElectricityFormatter,
             'traffic': traffic.TrafficFormatter,
+            'air_quality': air_quality.AirQualityFormatter,
             'watershed': watershed.WatershedFormatter,
+            'solar': solar.SolarFormatter,
         }
 
         return data_formatter_class[self.experiment]()
@@ -134,7 +135,7 @@ def process_watershed(config):
     for i, site in enumerate(sites):
 
         df = pd.read_csv('{}/{}_WQual_Level4.csv'.format(data_path, site), index_col=0, sep=',')
-        df_list.append(df.iloc[:, :])
+        df_list.append(df.iloc[0::4, :])
 
     output = pd.concat(df_list, axis=0)
     output.index = pd.to_datetime(output.Date)
@@ -145,10 +146,9 @@ def process_watershed(config):
     start_date = pd.to_datetime('2013-03-28')
     earliest_time = start_date
     output = output[output.index >= start_date]
-    date = pd.to_datetime(output.index)
+
+    date = output.index
     output['day_of_week'] = date.dayofweek
-    output['d'] = ["{}{}{}{}{}{}".format(str(x)[0:4], str(x)[5:7], str(x)[8:10],
-                                         str(x)[11:13], str(x)[14:16], str(x)[17:19]) for x in date.values]
     output['hour'] = date.hour
     output['id'] = output['Site']
     output['categorical_id'] = output['Site']
@@ -164,19 +164,161 @@ def process_watershed(config):
     print('Done.')
 
 
-def download_camel(args):
+def download_air_quality(args):
 
-    """Downloads camel dataset"""
-    url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
+    """Downloads air quality dataset from UCI repository"""
+
+    url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/00501/PRSA2017_Data_20130301-20170228.zip'
+
+    sites = ['Wanshouxigong', 'Wanliu', 'Shunyi', 'Nongzhanguan', 'Huairou', 'Gucheng',
+             'Guanyuan', 'Dongsi', 'Dingling', 'Changping', 'Aotizhongxin']
     data_folder = args.data_folder
-    csv_path = os.path.join(data_folder, '')
+    data_path = os.path.join(data_folder, 'PRSA_Data_20130301-20170228')
+    zip_path = data_path + '.zip'
+    download_and_unzip(url, zip_path, data_path, data_folder)
+    df_list = []
+
+    for i, site in enumerate(sites):
+
+        df = pd.read_csv('{}/PRSA_Data_{}_20130301-20170228.csv'.format(data_path, site),
+                         index_col=0, sep=',')
+        df_list.append(df)
+
+    output = pd.concat(df_list, axis=0)
+    output.index = pd.to_datetime(output[['year','month','day']])
+    output.sort_index(inplace=True)
+    earliest_time = output.index.min()
+
+    start_date = min(output.fillna(method='ffill').dropna().index)
+    end_date = max(output.fillna(method='bfill').dropna().index)
+
+    active_range = (output.index >= start_date) & (output.index <= end_date)
+    output = output[active_range].fillna(0.)
+
+    date = output.index
+
+    output['day_of_week'] = date.dayofweek
+    output['hour'] = date.hour
+    output['id'] = output['station']
+    output['categorical_id'] = output['station']
+    output['hours_from_start'] = (date - earliest_time).seconds / 60 / 60 + (
+            date - earliest_time).days * 24
+    output['days_from_start'] = (date - earliest_time).days
+    output.to_csv("air_quality.csv")
+
+    print('Done.')
+
+
+def download_solar(args):
+
+    url = 'https://www.nrel.gov/grid/assets/downloads/al-pv-2006.zip'
+    data_folder = args.data_folder
+    csv_path = os.path.join(data_folder, 'al-pv-2006')
     zip_path = csv_path + '.zip'
 
     download_and_unzip(url, zip_path, csv_path, data_folder)
 
-    df = pd.read_csv(csv_path, index_col=0, sep=';', decimal=',')
-    df.index = pd.to_datetime(df.index)
-    df.sort_index(inplace=True)
+    files = [
+        'Actual_30.45_-88.25_2006_UPV_70MW_5_Min', 'Actual_30.55_-87.55_2006_UPV_80MW_5_Min',
+        'Actual_30.55_-87.75_2006_DPV_36MW_5_Min', 'Actual_30.55_-88.15_2006_DPV_38MW_5_Min',
+        'Actual_30.55_-88.25_2006_DPV_38MW_5_Min', 'Actual_30.65_-87.55_2006_UPV_50MW_5_Min',
+        'Actual_30.65_-87.65_2006_DPV_36MW_5_Min', 'Actual_30.65_-87.75_2006_DPV_36MW_5_Min',
+        'Actual_30.65_-87.85_2006_DPV_36MW_5_Min', 'Actual_30.65_-88.05_2006_DPV_38MW_5_Min',
+        'Actual_30.65_-88.15_2006_DPV_38MW_5_Min', 'Actual_30.65_-88.25_2006_DPV_38MW_5_Min',
+        'Actual_30.65_-88.35_2006_UPV_10MW_5_Min', 'Actual_30.75_-87.75_2006_DPV_36MW_5_Min',
+        'Actual_30.75_-87.95_2006_UPV_30MW_5_Min', 'Actual_30.75_-88.05_2006_DPV_38MW_5_Min',
+        'Actual_30.75_-88.15_2006_DPV_38MW_5_Min', 'Actual_30.75_-88.25_2006_DPV_38MW_5_Min',
+        'Actual_30.85_-88.15_2006_DPV_38MW_5_Min', 'Actual_31.05_-85.55_2006_UPV_20MW_5_Min',
+        'Actual_31.05_-85.65_2006_UPV_70MW_5_Min', 'Actual_31.05_-85.75_2006_UPV_60MW_5_Min',
+        'Actual_31.15_-85.15_2006_DPV_34MW_5_Min', 'Actual_31.15_-85.25_2006_DPV_34MW_5_Min',
+        'Actual_31.15_-86.65_2006_UPV_60MW_5_Min', 'Actual_31.15_-87.65_2006_UPV_30MW_5_Min',
+        'Actual_31.25_-85.25_2006_DPV_34MW_5_Min', 'Actual_31.25_-85.55_2006_UPV_50MW_5_Min',
+        'Actual_31.25_-85.65_2006_UPV_20MW_5_Min', 'Actual_31.35_-86.85_2006_UPV_20MW_5_Min',
+        'Actual_31.35_-87.05_2006_UPV_70MW_5_Min', 'Actual_31.35_-87.65_2006_UPV_100MW_5_Min',
+        'Actual_31.35_-88.05_2006_UPV_80MW_5_Min', 'Actual_31.45_-85.45_2006_UPV_50MW_5_Min',
+        'Actual_31.45_-85.75_2006_UPV_30MW_5_Min', 'Actual_31.95_-86.45_2006_UPV_30MW_5_Min',
+        'Actual_32.05_-85.95_2006_UPV_30MW_5_Min', 'Actual_32.15_-86.25_2006_DPV_39MW_5_Min',
+        'Actual_32.25_-85.25_2006_UPV_10MW_5_Min', 'Actual_32.25_-86.15_2006_DPV_39MW_5_Min',
+        'Actual_32.25_-86.25_2006_DPV_39MW_5_Min', 'Actual_32.25_-86.25_2006_UPV_60MW_5_Min',
+        'Actual_32.25_-86.35_2006_DPV_39MW_5_Min', 'Actual_32.35_-86.15_2006_DPV_39MW_5_Min',
+        'Actual_32.35_-86.25_2006_DPV_39MW_5_Min', 'Actual_32.55_-85.35_2006_DPV_35MW_5_Min',
+        'Actual_32.55_-85.35_2006_UPV_50MW_5_Min', 'Actual_32.55_-86.05_2006_DPV_27MW_5_Min',
+        'Actual_32.55_-86.15_2006_DPV_27MW_5_Min', 'Actual_32.55_-86.55_2006_UPV_40MW_5_Min',
+        'Actual_32.65_-85.25_2006_DPV_35MW_5_Min', 'Actual_32.65_-85.35_2006_DPV_35MW_5_Min',
+        'Actual_32.65_-85.85_2006_UPV_30MW_5_Min', 'Actual_32.65_-86.15_2006_DPV_27MW_5_Min',
+        'Actual_32.75_-85.35_2006_DPV_35MW_5_Min', 'Actual_32.75_-85.45_2006_UPV_90MW_5_Min',
+        'Actual_32.95_-85.45_2006_UPV_100MW_5_Min', 'Actual_33.15_-86.55_2006_DPV_35MW_5_Min',
+        'Actual_33.15_-86.65_2006_DPV_35MW_5_Min', 'Actual_33.15_-87.55_2006_DPV_39MW_5_Min',
+        'Actual_33.25_-86.55_2006_DPV_35MW_5_Min', 'Actual_33.25_-86.65_2006_DPV_35MW_5_Min',
+        'Actual_33.25_-86.75_2006_DPV_35MW_5_Min', 'Actual_33.25_-87.45_2006_DPV_39MW_5_Min',
+        'Actual_33.25_-87.55_2006_DPV_39MW_5_Min', 'Actual_33.25_-87.65_2006_DPV_39MW_5_Min',
+        'Actual_33.35_-86.05_2006_DPV_28MW_5_Min', 'Actual_33.35_-86.15_2006_DPV_28MW_5_Min',
+        'Actual_33.35_-86.55_2006_DPV_35MW_5_Min', 'Actual_33.35_-86.65_2006_DPV_35MW_5_Min',
+        'Actual_33.35_-86.75_2006_DPV_39MW_5_Min', 'Actual_33.35_-86.85_2006_DPV_39MW_5_Min',
+        'Actual_33.35_-86.95_2006_DPV_39MW_5_Min', 'Actual_33.35_-87.05_2006_DPV_39MW_5_Min',
+        'Actual_33.35_-87.45_2006_DPV_39MW_5_Min', 'Actual_33.35_-87.55_2006_DPV_39MW_5_Min',
+        'Actual_33.45_-85.85_2006_UPV_50MW_5_Min', 'Actual_33.45_-85.95_2006_UPV_40MW_5_Min',
+        'Actual_33.45_-86.15_2006_DPV_28MW_5_Min', 'Actual_33.45_-86.25_2006_UPV_40MW_5_Min',
+        'Actual_33.45_-86.65_2006_DPV_39MW_5_Min', 'Actual_33.45_-86.75_2006_DPV_39MW_5_Min',
+        'Actual_33.45_-86.85_2006_DPV_39MW_5_Min', 'Actual_33.45_-86.95_2006_DPV_39MW_5_Min',
+        'Actual_33.45_-87.05_2006_DPV_39MW_5_Min', 'Actual_33.55_-85.55_2006_UPV_60MW_5_Min',
+        'Actual_33.55_-86.65_2006_DPV_39MW_5_Min', 'Actual_33.55_-86.75_2006_DPV_39MW_5_Min',
+        'Actual_33.55_-86.85_2006_DPV_39MW_5_Min', 'Actual_33.55_-86.95_2006_DPV_39MW_5_Min',
+        'Actual_33.55_-87.05_2006_DPV_39MW_5_Min', 'Actual_33.65_-86.35_2006_UPV_80MW_5_Min',
+        'Actual_33.65_-86.65_2006_DPV_39MW_5_Min', 'Actual_33.65_-86.75_2006_DPV_39MW_5_Min',
+        'Actual_33.65_-86.85_2006_DPV_39MW_5_Min', 'Actual_33.65_-86.95_2006_DPV_39MW_5_Min',
+        'Actual_33.75_-85.75_2006_DPV_39MW_5_Min', 'Actual_33.75_-85.85_2006_DPV_39MW_5_Min',
+        'Actual_33.75_-86.25_2006_DPV_28MW_5_Min', 'Actual_33.75_-86.25_2006_UPV_20MW_5_Min',
+        'Actual_33.75_-86.35_2006_DPV_28MW_5_Min', 'Actual_33.75_-86.65_2006_DPV_39MW_5_Min',
+        'Actual_33.75_-86.75_2006_DPV_39MW_5_Min', 'Actual_33.75_-86.85_2006_DPV_39MW_5_Min',
+        'Actual_33.85_-85.85_2006_DPV_39MW_5_Min', 'Actual_33.85_-86.35_2006_DPV_28MW_5_Min',
+        'Actual_34.05_-85.95_2006_DPV_36MW_5_Min', 'Actual_34.05_-86.05_2006_DPV_36MW_5_Min',
+        'Actual_34.15_-85.55_2006_UPV_70MW_5_Min', 'Actual_34.15_-86.05_2006_DPV_36MW_5_Min',
+        'Actual_34.15_-86.75_2006_DPV_35MW_5_Min', 'Actual_34.15_-86.85_2006_DPV_35MW_5_Min',
+        'Actual_34.25_-86.85_2006_DPV_35MW_5_Min', 'Actual_34.35_-86.25_2006_DPV_38MW_5_Min',
+        'Actual_34.35_-86.35_2006_DPV_38MW_5_Min', 'Actual_34.35_-86.85_2006_DPV_37MW_5_Min',
+        'Actual_34.45_-86.35_2006_DPV_38MW_5_Min', 'Actual_34.45_-86.75_2006_DPV_37MW_5_Min',
+        'Actual_34.45_-86.85_2006_DPV_37MW_5_Min', 'Actual_34.55_-86.85_2006_DPV_37MW_5_Min',
+        'Actual_34.65_-86.45_2006_DPV_38MW_5_Min', 'Actual_34.65_-86.55_2006_DPV_38MW_5_Min',
+        'Actual_34.65_-86.65_2006_DPV_38MW_5_Min', 'Actual_34.75_-86.35_2006_DPV_38MW_5_Min',
+        'Actual_34.75_-86.45_2006_DPV_38MW_5_Min', 'Actual_34.75_-86.55_2006_DPV_38MW_5_Min',
+        'Actual_34.75_-86.65_2006_DPV_38MW_5_Min', 'Actual_34.85_-86.45_2006_DPV_38MW_5_Min',
+        'Actual_34.85_-86.55_2006_DPV_38MW_5_Min', 'Actual_34.85_-86.65_2006_DPV_38MW_5_Min',
+        'Actual_34.85_-86.85_2006_DPV_33MW_5_Min', 'Actual_34.85_-86.95_2006_DPV_33MW_5_Min',
+        'Actual_34.95_-86.55_2006_DPV_38MW_5_Min', 'Actual_34.95_-86.95_2006_DPV_33MW_5_Min',
+        'Actual_34.95_-87.55_2006_DPV_38MW_5_Min', 'Actual_34.95_-87.65_2006_DPV_38MW_5_Min',
+        'Actual_35.05_-87.65_2006_DPV_38MW_5_Min'
+    ]
+
+    df_list = []
+
+    for file in files:
+        parts = file.split("_")
+        df = pd.read_csv(os.path.join(data_folder, '{}.csv'.format(file)), index_col=0, sep=',')
+        df_hr = df.iloc[0::12, :]
+        df_sub = df_hr.copy()
+        df_sub['latitude'] = parts[1]
+        df_sub['longtitude'] = parts[2]
+        df_sub['id'] = parts[1] + "_" + parts[2]
+        df_sub['capacity'] = parts[5]
+        df_list.append(df_sub)
+
+    output = pd.concat(df_list, axis=0)
+    output.index = pd.to_datetime(output.index)
+    output.sort_index(inplace=True)
+    earliest_time = output.index.min()
+    date = output.index
+
+    output['day_of_week'] = date.dayofweek
+    output['hour'] = date.hour
+    output['hours_from_start'] = (date - earliest_time).seconds / 60 / 60 + (
+            date - earliest_time).days * 24
+    output['days_from_start'] = (date - earliest_time).days
+    output['categorical_id'] = output['id']
+
+    output.to_csv("solar.csv")
+
+    print('Done.')
 
 
 def download_electricity(args):
@@ -397,6 +539,163 @@ def download_traffic(args):
     print('Done.')
 
 
+def process_favorita(config):
+    """Processes Favorita dataset.
+    Makes use of the raw files should be manually downloaded from Kaggle @
+    https://www.kaggle.com/c/favorita-grocery-sales-forecasting/data
+    Args:
+    config: Default experiment config for Favorita
+    """
+
+    url = 'https://www.kaggle.com/c/favorita-grocery-sales-forecasting/data'
+
+    data_folder = config.data_folder
+
+    # Save manual download to root folder to avoid deleting when re-processing.
+    zip_file = os.path.join(data_folder,
+                          'favorita-grocery-sales-forecasting.zip')
+
+    if not os.path.exists(zip_file):
+        raise ValueError(
+            'Favorita zip file not found in {}!'.format(zip_file) +
+            ' Please manually download data from Kaggle @ {}'.format(url))
+
+    # Unpack main zip file
+    outputs_file = os.path.join(data_folder, 'train.csv.7z')
+    unzip(zip_file, outputs_file, data_folder)
+
+    # Unpack individually zipped files
+    for file in glob.glob(os.path.join(data_folder, '*.7z')):
+
+        csv_file = file.replace('.7z', '')
+
+        unzip(file, csv_file, data_folder)
+
+    print('Unzipping complete, commencing data processing...')
+
+    # Extract only a subset of data to save/process for efficiency
+    start_date = pd.datetime(2015, 1, 1)
+    end_date = pd.datetime(2016, 6, 1)
+
+    print('Regenerating data...')
+
+    # load temporal data
+    temporal = pd.read_csv(os.path.join(data_folder, 'train.csv'), index_col=0)
+
+    store_info = pd.read_csv(os.path.join(data_folder, 'stores.csv'), index_col=0)
+    oil = pd.read_csv(
+      os.path.join(data_folder, 'oil.csv'), index_col=0).iloc[:, 0]
+    holidays = pd.read_csv(os.path.join(data_folder, 'holidays_events.csv'))
+    items = pd.read_csv(os.path.join(data_folder, 'items.csv'), index_col=0)
+    transactions = pd.read_csv(os.path.join(data_folder, 'transactions.csv'))
+
+    # Take first 6 months of data
+    temporal['date'] = pd.to_datetime(temporal['date'])
+
+    # Filter dates to reduce storage space requirements
+    if start_date is not None:
+        temporal = temporal[(temporal['date'] >= start_date)]
+    if end_date is not None:
+        temporal = temporal[(temporal['date'] < end_date)]
+
+    dates = temporal['date'].unique()
+
+    # Add trajectory identifier
+    temporal['traj_id'] = temporal['store_nbr'].apply(
+      str) + '_' + temporal['item_nbr'].apply(str)
+    temporal['unique_id'] = temporal['traj_id'] + '_' + temporal['date'].apply(
+      str)
+
+    # Remove all IDs with negative returns
+    print('Removing returns data')
+    min_returns = temporal['unit_sales'].groupby(temporal['traj_id']).min()
+    valid_ids = set(min_returns[min_returns >= 0].index)
+    selector = temporal['traj_id'].apply(lambda traj_id: traj_id in valid_ids)
+    new_temporal = temporal[selector].copy()
+    del temporal
+    gc.collect()
+    temporal = new_temporal
+    temporal['open'] = 1
+
+    # Resampling
+    print('Resampling to regular grid')
+    resampled_dfs = []
+    for traj_id, raw_sub_df in temporal.groupby('traj_id'):
+        print('Resampling', traj_id)
+        sub_df = raw_sub_df.set_index('date', drop=True).copy()
+        sub_df = sub_df.resample('1d').last()
+        sub_df['date'] = sub_df.index
+        sub_df[['store_nbr', 'item_nbr', 'onpromotion']] \
+            = sub_df[['store_nbr', 'item_nbr', 'onpromotion']].fillna(method='ffill')
+        sub_df['open'] = sub_df['open'].fillna(
+            0)  # flag where sales data is unknown
+        sub_df['log_sales'] = np.log(sub_df['unit_sales'])
+
+        resampled_dfs.append(sub_df.reset_index(drop=True))
+
+    new_temporal = pd.concat(resampled_dfs, axis=0)
+    del temporal
+    gc.collect()
+    temporal = new_temporal
+
+    print('Adding oil')
+    oil.name = 'oil'
+    oil.index = pd.to_datetime(oil.index)
+    temporal = temporal.join(
+      oil.reindex(dates).fillna(method='ffill'), on='date', how='left')
+    temporal['oil'] = temporal['oil'].fillna(-1)
+
+    print('Adding store info')
+    temporal = temporal.join(store_info, on='store_nbr', how='left')
+
+    print('Adding item info')
+    temporal = temporal.join(items, on='item_nbr', how='left')
+
+    transactions['date'] = pd.to_datetime(transactions['date'])
+    temporal = temporal.merge(
+      transactions,
+      left_on=['date', 'store_nbr'],
+      right_on=['date', 'store_nbr'],
+      how='left')
+    temporal['transactions'] = temporal['transactions'].fillna(-1)
+
+    # Additional date info
+    temporal['day_of_week'] = pd.to_datetime(temporal['date'].values).dayofweek
+    temporal['day_of_month'] = pd.to_datetime(temporal['date'].values).day
+    temporal['month'] = pd.to_datetime(temporal['date'].values).month
+
+    # Add holiday info
+    print('Adding holidays')
+    holiday_subset = holidays[holidays['transferred'].apply(
+      lambda x: not x)].copy()
+    holiday_subset.columns = [
+      s if s != 'type' else 'holiday_type' for s in holiday_subset.columns
+    ]
+    holiday_subset['date'] = pd.to_datetime(holiday_subset['date'])
+    local_holidays = holiday_subset[holiday_subset['locale'] == 'Local']
+    regional_holidays = holiday_subset[holiday_subset['locale'] == 'Regional']
+    national_holidays = holiday_subset[holiday_subset['locale'] == 'National']
+
+    temporal['national_hol'] = temporal.merge(
+      national_holidays, left_on=['date'], right_on=['date'],
+      how='left')['description'].fillna('')
+    temporal['regional_hol'] = temporal.merge(
+      regional_holidays,
+      left_on=['state', 'date'],
+      right_on=['locale_name', 'date'],
+      how='left')['description'].fillna('')
+    temporal['local_hol'] = temporal.merge(
+      local_holidays,
+      left_on=['city', 'date'],
+      right_on=['locale_name', 'date'],
+      how='left')['description'].fillna('')
+
+    temporal.sort_values('unique_id', inplace=True)
+
+    print('Saving processed file to {}'.format(config.data_csv_path))
+    temporal.to_csv("retail.csv")
+
+
 def main(expt_name, force_download, output_folder):
 
     print('#### Running download script ###')
@@ -415,8 +714,10 @@ def main(expt_name, force_download, output_folder):
     download_functions = {
         'electricity': download_electricity,
         'traffic': download_traffic,
+        'air_quality': download_air_quality,
+        'favorita': process_favorita,
         'watershed': process_watershed,
-        'camel': download_camel
+        'solar': download_solar
     }
 
     if expt_name not in download_functions:
