@@ -29,8 +29,8 @@ import glob
 
 from data import air_quality, electricity, traffic, watershed, solar
 
-np.random.seed(21)
-random.seed(21)
+np.random.seed(4151)
+random.seed(4151)
 
 
 class ExperimentConfig(object):

@@ -65,8 +65,8 @@ param_history = list()
 criterion = nn.MSELoss()
 mae = nn.L1Loss()
 
-np.random.seed(21)
-random.seed(21)
+np.random.seed(4151)
+random.seed(4151)
 
 torch.manual_seed(args.seed)
 

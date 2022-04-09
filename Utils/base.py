@@ -20,8 +20,8 @@ import abc
 import numpy as np
 import random
 
-np.random.seed(21)
-random.seed(21)
+np.random.seed(4151)
+random.seed(4151)
 
 
 # Type defintions
