@@ -69,8 +69,7 @@ class ScaledDotProductAttention(nn.Module):
             padding = int((kernel - 1) / 2)
             self.max_pooling_1 = nn.MaxPool2d(kernel_size=(kernel, 1), padding=(padding, 0))
             self.max_pooling_2 = nn.MaxPool2d(kernel_size=(1, self.kernel_b), padding=(0, padding_b))
-            n = self.num_past_info
-            self.linear_k = nn.Parameter(torch.randn(n*n), requires_grad=True).to(device)
+
 
     def get_new_rep(self, tnsr):
 
@@ -102,11 +101,12 @@ class ScaledDotProductAttention(nn.Module):
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
             n = K_e.shape[2]
-            n_linear = self.softmax(self.linear_k)
-            K_l = torch.einsum('bhnd,n->bhnd', K_e, n_linear) + \
-                  torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - n_linear)
-            V_l = torch.einsum('bhnd,n->bhnd', V_e, n_linear) + \
-                  torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - n_linear)
+            K_l = torch.stack([K_e, K[:, :, -n:, :].clone()], dim=-1)
+            K_l, index = torch.max(K_l, dim=-1)
+            V_l = torch.stack([V_e, V[:, :, -n:, :].clone()], dim=-1)
+            index = index.unsqueeze(-1).repeat(1, 1, 1, 1, 2)
+            V_l = torch.gather(V_l, -1, index)
+            V_l = V_l[:, :, :, :, 0]
             K[:, :, -n:, :] = K_l
             V[:, :, -n:, :] = V_l
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
