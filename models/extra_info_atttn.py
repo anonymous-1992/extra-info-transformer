@@ -63,9 +63,9 @@ class ScaledDotProductAttention(nn.Module):
             self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                     out_channels=d_k*n_heads,
                                     kernel_size=(self.kernel_l_k, 1),
-                                    stride=(4, 1),
+                                    stride=(5, 1),
                                     padding=(padding_l_k, 0)).to(device)
-            kernel = math.ceil(self.kernel_l_k / 4)
+            kernel = math.ceil(self.kernel_l_k / 5)
             padding = int((kernel - 1) / 2)
             self.max_pooling_1 = nn.MaxPool2d(kernel_size=(kernel, 1), padding=(padding, 0))
             self.max_pooling_2 = nn.MaxPool2d(kernel_size=(1, self.kernel_b), padding=(0, padding_b))
@@ -180,7 +180,7 @@ class EncoderLayer(nn.Module):
             d_v=d_v, n_heads=n_heads,
             device=device,
             attn_type=attn_type,
-            n_ext_info=n_ext_info, enc_attn=True)
+            n_ext_info=n_ext_info)
         self.pos_ffn = PoswiseFeedForwardNet(
             d_model=d_model, d_ff=d_ff)
         self.layer_norm = nn.LayerNorm(d_model, elementwise_affine=False)
