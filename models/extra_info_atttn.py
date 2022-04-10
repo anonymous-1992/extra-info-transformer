@@ -55,21 +55,22 @@ class ScaledDotProductAttention(nn.Module):
             self.kernel_b = math.ceil(n_ext_info / self.num_past_info)
             padding_l_k = int((self.kernel_l_k - 1) / 2)
             padding_b = int((self.kernel_b - 1) / 2)
-            kernel_l_k = math.ceil(self.kernel_l_k / 5)
+            stride = math.floor(self.kernel_l_k / 2)
+            kernel_l_k = math.floor(self.kernel_l_k / stride)
             padding_l_k_2 = int((kernel_l_k - 1) / 2)
             if "2d" in self.attn_type:
                 self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                         out_channels=d_k*n_heads,
                                         kernel_size=(self.kernel_l_k, self.kernel_b),
                                         padding=(padding_l_k, padding_b),
-                                        stride=(5, self.kernel_b)).to(device)
+                                        stride=(stride, self.kernel_b)).to(device)
                 self.max_pooling_1 = \
                     nn.MaxPool2d(kernel_size=(kernel_l_k, 1), padding=(padding_l_k_2, 0))
             else:
                 self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                         out_channels=d_k*n_heads,
                                         kernel_size=(self.kernel_l_k, 1),
-                                        stride=(5, 1),
+                                        stride=(stride, 1),
                                         padding=(padding_l_k, 0)).to(device)
                 self.max_pooling_1 = \
                     nn.MaxPool2d(kernel_size=(kernel_l_k, 1), padding=(padding_l_k_2, 0))
