@@ -134,7 +134,7 @@ def objective(trial):
     global val_loss
 
     d_model = trial.suggest_categorical("d_model", [32, 16])
-    if args.attn_type == "extra_info_attn":
+    if "extra_info_attn" in args.attn_type:
         n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size*8, log_b_size*4, log_b_size])
     else:
         n_ext_info = 0
