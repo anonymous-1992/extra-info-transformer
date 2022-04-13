@@ -33,7 +33,7 @@ parser.add_argument("--cuda", type=str, default='cuda:0')
 parser.add_argument("--attn_type", type=str, default='extra_info_attn_2d')
 args = parser.parse_args()
 
-n_distinct_trial = 0
+n_distinct_trial = 1
 config = ExperimentConfig(args.exp_name)
 formatter = config.make_data_formatter()
 
@@ -154,7 +154,7 @@ def objective(trial):
         n_ext_info = 0
         kernel_s = 1
         kernel_b = 1
-    if [d_model, n_ext_info] in param_history or n_distinct_trial > 8:
+    if [d_model, n_ext_info] in param_history or n_distinct_trial >= 8:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
