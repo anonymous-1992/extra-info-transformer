@@ -56,7 +56,8 @@ class ScaledDotProductAttention(nn.Module):
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
             stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
-            kernel_max_pool_s = math.ceil(l_k / (self.num_past_info * stride_s))
+            l_k = int((l_k + padding_s) / stride_s)
+            kernel_max_pool_s = math.ceil(l_k / self.num_past_info)
             padding_max_pooling_s = int((kernel_max_pool_s - 1)/2)
             padding_max_pooling_b = int((kernel_max_pool_b - 1) / 2)
 
@@ -90,6 +91,7 @@ class ScaledDotProductAttention(nn.Module):
         tnsr = tnsr.reshape(b, h * d, l_k, self.n_ext_info)
         tnsr = self.conv2d(tnsr)
         tnsr = self.max_pooling(tnsr)
+        print(tnsr.shape)
         n = tnsr.shape[-1]
         tnsr = tnsr.view(b, h, n * n, d)
         return tnsr
