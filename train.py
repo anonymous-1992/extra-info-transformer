@@ -1,3 +1,7 @@
+import gzip
+
+from optuna.samplers import TPESampler
+
 from models.extra_info_atttn import Attn
 from torch.optim import Adam
 import torch.nn as nn
@@ -23,12 +27,13 @@ parser = argparse.ArgumentParser(description="train context-aware attention")
 parser.add_argument("--name", type=str, default='extra_info_attn')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
-parser.add_argument("--n_trials", type=int, default=6)
+parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_steps", type=int, default=216)
 parser.add_argument("--cuda", type=str, default='cuda:0')
 parser.add_argument("--attn_type", type=str, default='extra_info_attn_2d')
 args = parser.parse_args()
 
+n_distinct_trial = 0
 config = ExperimentConfig(args.exp_name)
 formatter = config.make_data_formatter()
 
@@ -111,7 +116,9 @@ torch.autograd.set_detect_anomaly(True)
 L1Loss = nn.L1Loss()
 
 
-def define_model(d_model, n_ext_info, n_heads, stack_size, src_input_size, tgt_input_size):
+def define_model(d_model, n_ext_info,
+                 kernel_s, kernel_b, n_heads,
+                 stack_size, src_input_size, tgt_input_size):
 
     d_k = int(d_model / n_heads)
 
@@ -123,7 +130,8 @@ def define_model(d_model, n_ext_info, n_heads, stack_size, src_input_size, tgt_i
                n_layers=stack_size, src_pad_index=0,
                tgt_pad_index=0, device=device,
                attn_type=args.attn_type,
-               n_ext_info=n_ext_info)
+               n_ext_info=n_ext_info,
+               kernel_s=kernel_s, kernel_b=kernel_b)
     mdl.to(device)
     return mdl
 
@@ -132,14 +140,24 @@ def objective(trial):
 
     global best_model
     global val_loss
+    global n_distinct_trial
 
     d_model = trial.suggest_categorical("d_model", [32, 16])
     if "extra_info_attn" in args.attn_type:
-        n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size*8, log_b_size*4, log_b_size])
+        n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size*4, log_b_size])
+        kernel_s = trial.suggest_categorical("kernel_s", [1, 3, 9, 15])
+        if "2d" in args.attn_type:
+            kernel_b = trial.suggest_categorical("kernel_b", [1, 3, 9])
+        else:
+            kernel_b = 1
     else:
         n_ext_info = 0
-    if [d_model, n_ext_info] in param_history:
+        kernel_s = 1
+        kernel_b = 1
+    if [d_model, n_ext_info] in param_history or n_distinct_trial > 8:
         raise optuna.exceptions.TrialPruned()
+    else:
+        n_distinct_trial += 1
     param_history.append([d_model, n_ext_info])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
@@ -165,7 +183,7 @@ def objective(trial):
     valid_en, valid_de, valid_y, valid_id = \
         valid_en.to(device), valid_de.to(device), valid_y.to(device), valid_id
 
-    model = define_model(d_model, n_ext_info, n_heads, stack_size, train_en.shape[3], train_de.shape[3])
+    model = define_model(d_model, n_ext_info, kernel_s, kernel_b, n_heads, stack_size, train_en.shape[3], train_de.shape[3])
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
@@ -252,6 +270,13 @@ def evaluate():
 
         targets_all[j, :targets.shape[0], :] = targets
 
+    len_s = test_y.shape[2]
+    pred_path = "prediction_{}".format(len_s)
+    if not os.path.exists:
+        os.mkdir(pred_path)
+    with gzip.open(os.path.join(pred_path, "{}_{}.json".format(args.name, str(args.seed))), 'w') as fout:
+        fout.write(json.dumps(predictions.cpu().numpy().tolist()).encode('utf-8'))
+
     normaliser = targets_all.to(device).abs().mean()
     test_loss = criterion(predictions.to(device), targets_all.to(device)).item()
     test_loss = math.sqrt(test_loss) / normaliser.item()
@@ -264,10 +289,11 @@ def evaluate():
 
 def main():
 
-    search_space = {"d_model": [16, 32], "n_ext_info": [log_b_size*4, log_b_size]}
+    '''search_space = {"d_model": [16, 32], "n_ext_info": [log_b_size*4, log_b_size],
+                    "kernel_s":  [1, 3, 9, 15], "kernel_b": [1, 3, 9]}'''
     study = optuna.create_study(study_name=args.name,
                                 direction="minimize", pruner=optuna.pruners.HyperbandPruner(),
-                                sampler=optuna.samplers.GridSampler(search_space))
+                                sampler=TPESampler())
     study.optimize(objective, n_trials=args.n_trials)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
