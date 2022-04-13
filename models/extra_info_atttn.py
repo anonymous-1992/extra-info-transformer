@@ -56,10 +56,14 @@ class ScaledDotProductAttention(nn.Module):
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
             stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
-            l_k = int((l_k + padding_s) / stride_s)
+            l_k = math.floor(((l_k + 2 * padding_s - 1 * (kernel_s - 1) - 1) / stride_s) + 1)
             kernel_max_pool_s = math.ceil(l_k / self.num_past_info)
             padding_max_pooling_s = int((kernel_max_pool_s - 1)/2)
             padding_max_pooling_b = int((kernel_max_pool_b - 1) / 2)
+            self.m = math.floor(((l_k + 2 * padding_max_pooling_s - 1 *
+                                  (kernel_max_pool_s - 1) - 1) / kernel_max_pool_s) + 1)
+            self.n = math.floor(((n_ext_info + 2 * padding_max_pooling_b - 1 *
+                                  (kernel_max_pool_b - 1) - 1) / kernel_max_pool_b) + 1)
 
             if "2d" in self.attn_type:
                 self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
@@ -78,8 +82,8 @@ class ScaledDotProductAttention(nn.Module):
                 self.max_pooling = \
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
-            n = self.num_past_info
-            self.linear_k = nn.Parameter(torch.randn(n*n), requires_grad=True).to(device)
+
+            self.linear_k = nn.Parameter(torch.randn(self.n*self.m), requires_grad=True).to(device)
 
     def get_new_rep(self, tnsr):
 
@@ -91,9 +95,7 @@ class ScaledDotProductAttention(nn.Module):
         tnsr = tnsr.reshape(b, h * d, l_k, self.n_ext_info)
         tnsr = self.conv2d(tnsr)
         tnsr = self.max_pooling(tnsr)
-        print(tnsr.shape)
-        n = tnsr.shape[-1]
-        tnsr = tnsr.view(b, h, n * n, d)
+        tnsr = tnsr.view(b, h, self.n*self.m, d)
         return tnsr
 
     def forward(self, Q, K, V, attn_mask):

@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(description="train context-aware attention")
 parser.add_argument("--name", type=str, default='extra_info_attn')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
-parser.add_argument("--n_trials", type=int, default=150)
+parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_steps", type=int, default=216)
 parser.add_argument("--cuda", type=str, default='cuda:0')
 parser.add_argument("--attn_type", type=str, default='extra_info_attn_2d')
@@ -154,7 +154,7 @@ def objective(trial):
         n_ext_info = 0
         kernel_s = 1
         kernel_b = 1
-    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial >= 48:
+    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial >= 8:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
