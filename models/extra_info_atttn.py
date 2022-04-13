@@ -52,19 +52,22 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
         if "extra_info_attn" in self.attn_type:
             self.num_past_info = math.ceil(math.log2(b_size))
-            self.kernel_max_pool_s = math.ceil(l_k / self.num_past_info)
-            self.kernel_max_pool_b = math.ceil(n_ext_info / self.num_past_info)
+            kernel_max_pool_b = math.ceil(n_ext_info / self.num_past_info)
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
-            padding_max_pooling_s = int((self.kernel_max_pool_s - 1)/2)
-            padding_max_pooling_b = int((self.kernel_max_pool_b - 1) / 2)
+            stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
+            kernel_max_pool_s = math.ceil(l_k / (self.num_past_info * stride_s))
+            padding_max_pooling_s = int((kernel_max_pool_s - 1)/2)
+            padding_max_pooling_b = int((kernel_max_pool_b - 1) / 2)
+
             if "2d" in self.attn_type:
                 self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                         out_channels=d_k*n_heads,
                                         kernel_size=(kernel_s, kernel_b),
+                                        stride=(stride_s, 1),
                                         padding=(padding_s, padding_b)).to(device)
                 self.max_pooling = \
-                    nn.MaxPool2d(kernel_size=(self.kernel_max_pool_s, self.kernel_max_pool_b),
+                    nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
             else:
                 self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
@@ -72,7 +75,7 @@ class ScaledDotProductAttention(nn.Module):
                                         kernel_size=(kernel_s, 1),
                                         padding=(padding_s, 0)).to(device)
                 self.max_pooling = \
-                    nn.MaxPool2d(kernel_size=(self.kernel_max_pool_s, self.kernel_max_pool_b),
+                    nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
             n = self.num_past_info
             self.linear_k = nn.Parameter(torch.randn(n*n), requires_grad=True).to(device)
