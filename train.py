@@ -272,7 +272,7 @@ def evaluate():
 
     len_s = test_y.shape[2]
     pred_path = "prediction_{}".format(len_s)
-    if not os.path.exists:
+    if not os.path.exists(pred_path):
         os.mkdir(pred_path)
     with gzip.open(os.path.join(pred_path, "{}_{}.json".format(args.name, str(args.seed))), 'w') as fout:
         fout.write(json.dumps(predictions.cpu().numpy().tolist()).encode('utf-8'))
