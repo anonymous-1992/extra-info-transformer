@@ -56,9 +56,9 @@ class ScaledDotProductAttention(nn.Module):
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
             stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
-            stride_b = 1 if kernel_b == 1 else int(kernel_b / 2)
-            l_k = math.floor(((l_k + 2 * padding_s - 1 * (kernel_s - 1) - 1) / stride_s) + 1)
-            n_ext_info = math.floor(((n_ext_info + 2 * padding_b - 1 * (kernel_b - 1) - 1) / stride_b) + 1)
+            stride_b = 1 if kernel_b / self.num_past_info <= 1 else n_ext_info / self.num_past_info
+            l_k = math.floor(((l_k + 2 * padding_s - (kernel_s - 1) - 1) / stride_s) + 1)
+            n_ext_info = math.floor(((n_ext_info + 2 * padding_b - kernel_b) / stride_b) + 1)
             kernel_max_pool_s = math.ceil(l_k / self.num_past_info)
             kernel_max_pool_b = math.ceil(n_ext_info / self.num_past_info)
             padding_max_pooling_s = int((kernel_max_pool_s - 1)/2)
@@ -72,7 +72,7 @@ class ScaledDotProductAttention(nn.Module):
                 self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                         out_channels=d_k*n_heads,
                                         kernel_size=(kernel_s, kernel_b),
-                                        stride=(stride_s, 1),
+                                        stride=(stride_s, stride_b),
                                         padding=(padding_s, padding_b)).to(device)
                 self.max_pooling = \
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
@@ -81,6 +81,7 @@ class ScaledDotProductAttention(nn.Module):
                 self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                         out_channels=d_k*n_heads,
                                         kernel_size=(kernel_s, 1),
+                                        stride=(stride_s, 1),
                                         padding=(padding_s, 0)).to(device)
                 self.max_pooling = \
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
