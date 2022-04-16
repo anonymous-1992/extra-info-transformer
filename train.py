@@ -271,7 +271,7 @@ def evaluate():
         targets_all[j, :targets.shape[0], :] = targets
 
     len_s = test_y.shape[2]
-    pred_path = "prediction_{}".format(len_s)
+    pred_path = "prediction_{}_{}".format(args.exp_name, len_s)
     if not os.path.exists(pred_path):
         os.mkdir(pred_path)
     with gzip.open(os.path.join(pred_path, "{}_{}.json".format(args.name, str(args.seed))), 'w') as fout:
