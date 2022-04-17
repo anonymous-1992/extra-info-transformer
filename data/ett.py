@@ -35,7 +35,7 @@ class ETTFormatter(TrafficFormatter):
             ('categorical_id', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
         ]
 
-    def split_data(self, df, valid_boundary=500, test_boundary=612):
+    def split_data(self, df, valid_boundary=525, test_boundary=625):
         """Splits data frame into training-validation-test data frames.
         This also calibrates scaling object, and transforms data for each split.
         Args:
