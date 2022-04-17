@@ -225,7 +225,7 @@ def objective(trial):
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
 
-        if epoch - best_iter_num >= 15:
+        if epoch - best_iter_num >= 5:
             break
 
     return val_inner_loss
