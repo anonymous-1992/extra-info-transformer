@@ -50,8 +50,8 @@ class TrafficFormatter(GenericDataFormatter):
 
         index = df['sensor_day']
         train = df.loc[index < valid_boundary]
-        valid = df.loc[(index >= valid_boundary - 7) & (index < test_boundary)]
-        test = df.loc[index >= test_boundary - 7]
+        valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
+        test = df.loc[index >= test_boundary]
 
         self.set_scalers(train)
 

@@ -32,10 +32,9 @@ class ETTFormatter(TrafficFormatter):
             ('hour', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
             ('day_of_week', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
             ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-            ('categorical_id', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
         ]
 
-    def split_data(self, df, valid_boundary=525, test_boundary=625):
+    def split_data(self, df, valid_boundary=365, test_boundary=485):
         """Splits data frame into training-validation-test data frames.
         This also calibrates scaling object, and transforms data for each split.
         Args:
@@ -50,8 +49,8 @@ class ETTFormatter(TrafficFormatter):
 
         index = df['days_from_start']
         train = df.loc[index < valid_boundary]
-        valid = df.loc[(index >= valid_boundary - 7) & (index < test_boundary)]
-        test = df.loc[index >= test_boundary - 7]
+        valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
+        test = df.loc[(index >= test_boundary) & (index < test_boundary + 120)]
 
         self.set_scalers(train)
 
