@@ -62,7 +62,7 @@ class ExperimentConfig(object):
             'favorita': 'favorita_consolidated.csv',
             'watershed': 'watershed.csv',
             'solar': 'solar.csv',
-            'ETTm2': 'ETTm2.csv'
+            'ETTm2': 'ETT.csv'
         }
 
         return os.path.join(self.data_folder, csv_map[self.experiment])
@@ -168,7 +168,7 @@ def download_ett(args):
     """Downloads ETT dataset from github"""
     url = 'https://github.com/zhouhaoyi/ETDataset/raw/main/ETT-small/ETTm2.csv'
     data_folder = args.data_folder
-    data_path = os.path.join(data_folder, "")
+    data_path = os.path.join(data_folder, "ETT.csv")
     download_from_url(url, data_path)
 
     df = pd.read_csv(os.path.join(data_path, "ETTm2.csv"), index_col=0)
