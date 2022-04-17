@@ -3,6 +3,11 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 import math
+import random
+
+
+np.random.seed(1234)
+random.seed(1234)
 
 
 def get_attn_subsequent_mask(seq):
@@ -349,9 +354,11 @@ class Attn(nn.Module):
 
     def __init__(self, src_input_size, tgt_input_size, d_model,
                  d_ff, d_k, d_v, n_heads, n_layers, src_pad_index,
-                 tgt_pad_index, device, attn_type, n_ext_info, kernel_s, kernel_b):
+                 tgt_pad_index, device, attn_type, n_ext_info,
+                 kernel_s, kernel_b, seed):
         super(Attn, self).__init__()
 
+        torch.manual_seed(seed)
         self.encoder = Encoder(
             d_model=d_model, d_ff=d_ff,
             d_k=d_k, d_v=d_v, n_heads=n_heads,

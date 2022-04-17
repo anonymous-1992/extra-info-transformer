@@ -17,10 +17,6 @@
 
 import enum
 import abc
-import numpy as np
-import random
-
-
 
 # Type defintions
 class DataTypes(enum.IntEnum):

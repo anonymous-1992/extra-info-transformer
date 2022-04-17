@@ -72,7 +72,6 @@ mae = nn.L1Loss()
 
 np.random.seed(1234)
 random.seed(1234)
-
 torch.manual_seed(args.seed)
 
 val_loss = 1e10
@@ -131,7 +130,8 @@ def define_model(d_model, n_ext_info,
                tgt_pad_index=0, device=device,
                attn_type=args.attn_type,
                n_ext_info=n_ext_info,
-               kernel_s=kernel_s, kernel_b=kernel_b)
+               kernel_s=kernel_s,
+               kernel_b=kernel_b, seed=args.seed)
     mdl.to(device)
     return mdl
 
@@ -293,7 +293,7 @@ def main():
                     "kernel_s":  [1, 3, 9, 15], "kernel_b": [1, 3, 9]}'''
     study = optuna.create_study(study_name=args.name,
                                 direction="minimize", pruner=optuna.pruners.HyperbandPruner(),
-                                sampler=TPESampler())
+                                sampler=TPESampler(seed=1234))
     study.optimize(objective, n_trials=args.n_trials)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])

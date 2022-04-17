@@ -20,6 +20,10 @@ import numpy as np
 from Utils import utils, base
 import pandas as pd
 import math
+import random
+
+np.random.seed(1234)
+random.seed(1234)
 
 InputTypes = base.InputTypes
 
