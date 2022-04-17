@@ -145,7 +145,7 @@ def objective(trial):
     d_model = trial.suggest_categorical("d_model", [32, 16])
     if "extra_info_attn" in args.attn_type:
         n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size*4, log_b_size])
-        kernel_s = trial.suggest_categorical("kernel_s", [9, 18])
+        kernel_s = trial.suggest_categorical("kernel_s", [3, 9])
         if "2d" in args.attn_type:
             kernel_b = trial.suggest_categorical("kernel_b", [3, 9])
         else:
@@ -154,7 +154,7 @@ def objective(trial):
         n_ext_info = 0
         kernel_s = 1
         kernel_b = 1
-    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial > 4:
+    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial > 6:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
