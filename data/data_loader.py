@@ -62,7 +62,7 @@ class ExperimentConfig(object):
             'favorita': 'favorita_consolidated.csv',
             'watershed': 'watershed.csv',
             'solar': 'solar.csv',
-            'ETTm2': 'ETT.csv'
+            'ETTm2': 'ETTm2.csv'
         }
 
         return os.path.join(self.data_folder, csv_map[self.experiment])
