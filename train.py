@@ -189,6 +189,7 @@ def objective(trial):
 
     best_iter_num = 0
     val_inner_loss = 1e10
+    total_inner_loss = 1e10
     for epoch in range(params['num_epochs']):
         total_loss = 0
         model.train()
@@ -211,8 +212,9 @@ def objective(trial):
             loss = criterion(valid_y[j], outputs)
             test_loss += loss.item()
 
-        if val_inner_loss > test_loss:
+        if val_inner_loss > test_loss and total_inner_loss > total_loss:
             val_inner_loss = test_loss
+            total_inner_loss = total_loss
             if val_loss > val_inner_loss:
                 val_loss = val_inner_loss
                 best_model = model
