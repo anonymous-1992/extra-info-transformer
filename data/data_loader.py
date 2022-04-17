@@ -27,12 +27,11 @@ import gc
 import glob
 
 
-from data import air_quality, electricity, traffic, watershed, solar
-
+from data import air_quality, electricity, traffic, watershed, solar, ett
 
 
 class ExperimentConfig(object):
-    default_experiments = ['electricity', 'traffic', 'air_quality', 'favorita', 'watershed', 'solar']
+    default_experiments = ['electricity', 'traffic', 'air_quality', 'favorita', 'watershed', 'solar', 'ETTm2']
 
     def __init__(self, experiment='electricity', root_folder=None):
 
@@ -62,7 +61,8 @@ class ExperimentConfig(object):
             'air_quality': 'hourly_air_quality.csv',
             'favorita': 'favorita_consolidated.csv',
             'watershed': 'watershed.csv',
-            'solar': 'solar.csv'
+            'solar': 'solar.csv',
+            'ETTm2': 'ETT.csv'
         }
 
         return os.path.join(self.data_folder, csv_map[self.experiment])
@@ -79,6 +79,7 @@ class ExperimentConfig(object):
             'air_quality': air_quality.AirQualityFormatter,
             'watershed': watershed.WatershedFormatter,
             'solar': solar.SolarFormatter,
+            'ETTm2': ett.ETTFormatter
         }
 
         return data_formatter_class[self.experiment]()
@@ -160,6 +161,40 @@ def process_watershed(config):
     output.to_csv("watershed.csv")
 
     print('Done.')
+
+
+def download_ett(args):
+
+    """Downloads ETT dataset from github"""
+    url = 'https://github.com/zhouhaoyi/ETDataset/raw/main/ETT-small/ETTm2.csv'
+    data_folder = args.data_folder
+    data_path = os.path.join(data_folder, "")
+    download_from_url(url, data_path)
+
+    df = pd.read_csv(os.path.join(data_path, "../ETTm2.csv"), index_col=0)
+    df.index = pd.to_datetime(df.index)
+    df.sort_index(inplace=True)
+
+    # used to determine the start and end dates of a series
+    output = df.resample('15min').mean().replace(0., np.nan)
+
+    earliest_time = output.index.min()
+    start_date = min(output.fillna(method='ffill').dropna().index)
+    end_date = max(output.fillna(method='bfill').dropna().index)
+
+    active_range = (output.index >= start_date) & (output.index <= end_date)
+    output = output[active_range].fillna(0.)
+
+    date = output.index
+
+    output['day_of_week'] = date.dayofweek
+    output['hour'] = date.hour
+    output['id'] = 1
+    output['categorical_id'] = output['id']
+    output['hours_from_start'] = (date - earliest_time).seconds / 60 / 60 + (
+            date - earliest_time).days * 24
+    output['days_from_start'] = (date - earliest_time).days
+    output.to_csv("ETTm2.csv")
 
 
 def download_air_quality(args):
@@ -715,7 +750,8 @@ def main(expt_name, force_download, output_folder):
         'air_quality': download_air_quality,
         'favorita': process_favorita,
         'watershed': process_watershed,
-        'solar': download_solar
+        'solar': download_solar,
+        'ETTm2': download_ett
     }
 
     if expt_name not in download_functions:
