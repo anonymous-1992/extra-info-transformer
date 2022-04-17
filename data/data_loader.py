@@ -171,7 +171,7 @@ def download_ett(args):
     data_path = os.path.join(data_folder, "")
     download_from_url(url, data_path)
 
-    df = pd.read_csv(os.path.join(data_path, "../ETTm2.csv"), index_col=0)
+    df = pd.read_csv(os.path.join(data_path, "ETTm2.csv"), index_col=0)
     df.index = pd.to_datetime(df.index)
     df.sort_index(inplace=True)
 
