@@ -61,7 +61,7 @@ class ScaledDotProductAttention(nn.Module):
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
             stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
-            stride_b = 1 if kernel_b / self.num_past_info <= 1 else n_ext_info / self.num_past_info
+            stride_b = 1 if kernel_b == 1 else int(kernel_b / 2)
             l_k = math.floor(((l_k + 2 * padding_s - (kernel_s - 1) - 1) / stride_s) + 1)
             n_ext_info = math.floor(((n_ext_info + 2 * padding_b - kernel_b) / stride_b) + 1)
             kernel_max_pool_s = math.ceil(l_k / self.num_past_info)
