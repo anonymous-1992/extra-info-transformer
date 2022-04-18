@@ -69,8 +69,8 @@ class ElectricityFormatter(GenericDataFormatter):
 
         index = df['days_from_start']
         train = df.loc[index < valid_boundary]
-        valid = df.loc[(index >= valid_boundary) & (index < test_boundary)]
-        test = df.loc[index >= test_boundary]
+        valid = df.loc[(index >= valid_boundary - 7) & (index < test_boundary)]
+        test = df.loc[index >= test_boundary - 7]
 
         self.set_scalers(train)
 
