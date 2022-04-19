@@ -145,9 +145,9 @@ def objective(trial):
     d_model = trial.suggest_categorical("d_model", [32, 16])
     if "extra_info_attn" in args.attn_type:
         n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size*4, log_b_size])
-        kernel_s = trial.suggest_categorical("kernel_s", [3, 9])
+        kernel_s = trial.suggest_categorical("kernel_s", [1, 3, 6, 9])
         if "2d" in args.attn_type:
-            kernel_b = trial.suggest_categorical("kernel_b", [3, 9])
+            kernel_b = trial.suggest_categorical("kernel_b", [1, 3, 6, 9])
         else:
             kernel_b = 1
     else:
@@ -227,7 +227,7 @@ def objective(trial):
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
 
-        if epoch - best_iter_num >= 8:
+        if epoch - best_iter_num >= 10:
             break
 
     return val_inner_loss
