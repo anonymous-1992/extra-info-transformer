@@ -56,8 +56,8 @@ class ScaledDotProductAttention(nn.Module):
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
         if "extra_info_attn" in self.attn_type:
-            self.num_past_info = math.ceil(math.log2(b_size))
 
+            self.num_past_info = math.ceil(math.log2(b_size))
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
             stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
@@ -101,7 +101,6 @@ class ScaledDotProductAttention(nn.Module):
         tnsr = tnsr.reshape(l_k, h * d, b)
         tnsr = F.pad(tnsr, pad=(self.n_ext_info - 1, 0, 0, 0))
         tnsr = tnsr.unfold(-1, self.n_ext_info, 1)
-
         tnsr = tnsr.reshape(b, h * d, l_k, self.n_ext_info)
         tnsr = self.conv2d(tnsr)
         tnsr = self.max_pooling(tnsr)

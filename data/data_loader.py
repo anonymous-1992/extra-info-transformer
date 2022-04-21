@@ -27,11 +27,12 @@ import gc
 import glob
 
 
-from data import air_quality, electricity, traffic, watershed, solar, ett
+from data import air_quality, electricity, traffic, watershed, solar, ett, weather
 
 
 class ExperimentConfig(object):
-    default_experiments = ['electricity', 'traffic', 'air_quality', 'favorita', 'watershed', 'solar', 'ETTm2']
+    default_experiments = ['electricity', 'traffic', 'air_quality',
+                           'favorita', 'watershed', 'solar', 'ETTm2', 'weather']
 
     def __init__(self, experiment='electricity', root_folder=None):
 
@@ -62,7 +63,8 @@ class ExperimentConfig(object):
             'favorita': 'favorita_consolidated.csv',
             'watershed': 'watershed.csv',
             'solar': 'solar.csv',
-            'ETTm2': 'ETT.csv'
+            'ETTm2': 'ETT.csv',
+            'weather': 'weather.csv'
         }
 
         return os.path.join(self.data_folder, csv_map[self.experiment])
@@ -79,7 +81,8 @@ class ExperimentConfig(object):
             'air_quality': air_quality.AirQualityFormatter,
             'watershed': watershed.WatershedFormatter,
             'solar': solar.SolarFormatter,
-            'ETTm2': ett.ETTFormatter
+            'ETTm2': ett.ETTFormatter,
+            'weather': weather.weatherFormatter
         }
 
         return data_formatter_class[self.experiment]()
@@ -161,6 +164,56 @@ def process_watershed(config):
     output.to_csv("watershed.csv")
 
     print('Done.')
+
+
+def download_weather(args):
+
+    """Downloads weather dataset from bgc jenna for 2020"""
+    data_folder = args.data_folder
+
+    def get_dfs(url, csv, zip):
+        csv_path = os.path.join(data_folder, csv)
+        zip_path = os.path.join(data_folder, zip)
+        download_and_unzip(url, zip_path, csv_path, data_folder)
+        return pd.read_csv(csv_path, index_col=0, encoding='unicode_escape')
+
+    url_list = ['https://www.bgc-jena.mpg.de/wetter/mpi_roof_2019a.zip',
+                'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2019b.zip',
+                'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2020a.zip',
+                'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2020b.zip',
+                'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2021a.zip',
+                'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2021b.zip',
+                'https://www.bgc-jena.mpg.de/wetter/mpi_roof.zip']
+
+    csv_zip_list = ['mpi_roof_2019a', 'mpi_roof_2019b', 'mpi_roof_2020a', 'mpi_roof_2020b', 'mpi_roof_2021a',
+                    'mpi_roof_2021b', 'mpi_roof']
+    output = get_dfs(url_list[0], csv_zip_list[0] + ".csv", csv_zip_list[0] + ".zip")
+    for i in range(1, len(url_list)):
+        df = get_dfs(url_list[i], csv_zip_list[i] + ".csv", csv_zip_list[i] + ".zip")
+        output = output.append(df)
+
+    output.index = pd.to_datetime(output.index)
+    output.sort_index(inplace=True)
+
+    output = output.resample('10min').mean().replace(0., np.nan)
+
+    earliest_time = output.index.min()
+    start_date = min(output.fillna(method='ffill').dropna().index)
+    end_date = max(output.fillna(method='bfill').dropna().index)
+
+    active_range = (output.index >= start_date) & (output.index <= end_date)
+    output = output[active_range].fillna(0.)
+
+    date = output.index
+
+    output['day_of_week'] = date.dayofweek
+    output['hour'] = date.hour
+    output['id'] = 1
+    output['categorical_id'] = output['id']
+    output['hours_from_start'] = (date - earliest_time).seconds / 60 / 60 + (
+            date - earliest_time).days * 24
+    output['days_from_start'] = (date - earliest_time).days
+    output.to_csv("weather.csv")
 
 
 def download_ett(args):
@@ -751,7 +804,8 @@ def main(expt_name, force_download, output_folder):
         'favorita': process_favorita,
         'watershed': process_watershed,
         'solar': download_solar,
-        'ETTm2': download_ett
+        'ETTm2': download_ett,
+        'weather': download_weather
     }
 
     if expt_name not in download_functions:
