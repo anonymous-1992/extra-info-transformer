@@ -29,8 +29,10 @@ class weatherFormatter(TrafficFormatter):
     _column_definition = [
             ('id', DataTypes.REAL_VALUED, InputTypes.ID),
             ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.TIME),
-            ('CO2 (ppm)', DataTypes.REAL_VALUED, InputTypes.TARGET),
+            ('rain (mm)', DataTypes.REAL_VALUED, InputTypes.TARGET),
             ('hour', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+            ('T (degC)', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+            ('H2OC (mmol/mol)', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
             ('day_of_week', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
             ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ]
