@@ -31,14 +31,14 @@ class weatherFormatter(TrafficFormatter):
             ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.TIME),
             ('CO2 (ppm)', DataTypes.REAL_VALUED, InputTypes.TARGET),
             ('rain (mm)', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-            ('hour', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
             ('T (degC)', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
             ('H2OC (mmol/mol)', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+            ('hour', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
             ('day_of_week', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
             ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ]
 
-    def split_data(self, df, valid_boundary=1000, test_boundary=1200):
+    def split_data(self, df, valid_boundary=254, test_boundary=291):
         """Splits data frame into training-validation-test data frames.
         This also calibrates scaling object, and transforms data for each split.
         Args:
