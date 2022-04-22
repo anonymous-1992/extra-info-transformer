@@ -318,9 +318,10 @@ def main():
     nrmse, nmae = evaluate()
 
     error_file = dict()
-    error_file[args.name] = list()
-    error_file[args.name].append("{:.3f}".format(nrmse))
-    error_file[args.name].append("{:.3f}".format(nmae))
+    key = "{}_{}".format(args.name, args.seed)
+    error_file[key] = list()
+    error_file[key].append("{:.3f}".format(nrmse))
+    error_file[key].append("{:.3f}".format(nmae))
 
     res_path = "results_{}_{}.json".format(args.exp_name,
                                            args.total_steps - params['num_encoder_steps'])
@@ -328,10 +329,10 @@ def main():
     if os.path.exists(res_path):
         with open(res_path) as json_file:
             json_dat = json.load(json_file)
-            if json_dat.get(args.name) is None:
-                json_dat[args.name] = list()
-            json_dat[args.name].append("{:.3f}".format(nrmse))
-            json_dat[args.name].append("{:.3f}".format(nmae))
+            if json_dat.get(key) is None:
+                json_dat[key] = list()
+            json_dat[key].append("{:.3f}".format(nrmse))
+            json_dat[key].append("{:.3f}".format(nmae))
 
         with open(res_path, "w") as json_file:
             json.dump(json_dat, json_file)
