@@ -177,8 +177,7 @@ def download_weather(args):
         download_and_unzip(url, zip_path, csv_path, data_folder)
         return pd.read_csv(csv_path, index_col=0, encoding='unicode_escape')
 
-    url_list = [
-                'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2004a.zip',
+    url_list = ['https://www.bgc-jena.mpg.de/wetter/mpi_roof_2004a.zip',
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2004b.zip',
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2005a.zip',
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2005b.zip',
@@ -216,19 +215,19 @@ def download_weather(args):
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2021b.zip',
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof.zip']
 
-    csv_zip_list = ['mpi_roof_2004a', 'mpi_roof_2004a',
-                    'mpi_roof_2005a', 'mpi_roof_2005a',
-                    'mpi_roof_2006a', 'mpi_roof_2006a',
-                    'mpi_roof_2007a', 'mpi_roof_2007a',
-                    'mpi_roof_2008a', 'mpi_roof_2008a',
-                    'mpi_roof_2009a', 'mpi_roof_2009a',
-                    'mpi_roof_2010a', 'mpi_roof_2010a',
-                    'mpi_roof_2011a', 'mpi_roof_2011a',
-                    'mpi_roof_2012a', 'mpi_roof_2012a',
-                    'mpi_roof_2013a', 'mpi_roof_2013a',
-                    'mpi_roof_2014a', 'mpi_roof_2014a',
-                    'mpi_roof_2015a', 'mpi_roof_2015a',
-                    'mpi_roof_2016a', 'mpi_roof_2016a',
+    csv_zip_list = ['mpi_roof_2004a', 'mpi_roof_2004b',
+                    'mpi_roof_2005a', 'mpi_roof_2005b',
+                    'mpi_roof_2006a', 'mpi_roof_2006b',
+                    'mpi_roof_2007a', 'mpi_roof_2007b',
+                    'mpi_roof_2008a', 'mpi_roof_2008b',
+                    'mpi_roof_2009a', 'mpi_roof_2009b',
+                    'mpi_roof_2010a', 'mpi_roof_2010b',
+                    'mpi_roof_2011a', 'mpi_roof_2011b',
+                    'mpi_roof_2012a', 'mpi_roof_2012b',
+                    'mpi_roof_2013a', 'mpi_roof_2013b',
+                    'mpi_roof_2014a', 'mpi_roof_2014b',
+                    'mpi_roof_2015a', 'mpi_roof_2015b',
+                    'mpi_roof_2016a', 'mpi_roof_2016b',
                     'mpi_roof_2017a', 'mpi_roof_2017b',
                     'mpi_roof_2018a','mpi_roof_2018b',
                     'mpi_roof_2019a', 'mpi_roof_2019b',
