@@ -38,7 +38,7 @@ class weatherFormatter(TrafficFormatter):
             ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ]
 
-    def split_data(self, df, valid_boundary=5334, test_boundary=6036):
+    def split_data(self, df, valid_boundary=4267, test_boundary=4608):
         """Splits data frame into training-validation-test data frames.
         This also calibrates scaling object, and transforms data for each split.
         Args:
@@ -67,4 +67,4 @@ class weatherFormatter(TrafficFormatter):
         Returns:
           Tuple of (training samples, validation samples)
         """
-        return 128000, 16384
+        return 102400, 8192
