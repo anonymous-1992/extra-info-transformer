@@ -1,4 +1,5 @@
 import argparse
+import gzip
 import math
 import random
 from baseline import RNN
