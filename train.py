@@ -40,7 +40,7 @@ formatter = config.make_data_formatter()
 data_csv_path = "{}.csv".format(args.exp_name)
 
 print("Loading & splitting data...")
-raw_data = pd.read_csv(data_csv_path)
+raw_data = pd.read_csv(data_csv_path, on_bad_lines='skip')
 train_data, valid, test = formatter.split_data(raw_data)
 train_max, valid_max = formatter.get_num_samples_for_calibration()
 params = formatter.get_experiment_params()

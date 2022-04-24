@@ -234,11 +234,12 @@ def download_weather(args):
                     'mpi_roof_2020a', 'mpi_roof_2020b',
                     'mpi_roof_2021a', 'mpi_roof_2021b',
                     'mpi_roof']
-    output = get_dfs(url_list[0], csv_zip_list[0] + ".csv", csv_zip_list[0] + ".zip")
-    for i in range(1, len(url_list)):
+    df_list = []
+    for i in range(len(url_list)):
         df = get_dfs(url_list[i], csv_zip_list[i] + ".csv", csv_zip_list[i] + ".zip")
-        output = output.append(df)
+        df_list.append(df)
 
+    output = pd.concat(df_list, axis=0, join='outer')
     output.index = pd.to_datetime(output.index)
     output.sort_index(inplace=True)
 
@@ -513,7 +514,7 @@ def download_electricity(args):
     output = output[(output['days_from_start'] >= 1096)
                     & (output['days_from_start'] < 1346)].copy()
 
-    output.to_csv("electricity.csv".format(args.data_folder))
+    output.to_csv("electricity.csv")
 
     print('Done.')
 
