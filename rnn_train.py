@@ -115,7 +115,8 @@ def define_model(stack_size, d_model, src_input_size, tgt_input_size):
                tgt_input_size=tgt_input_size,
                rnn_type="lstm",
                device=device,
-               d_r=0)
+               d_r=0,
+               seed=args.seed)
     mdl.to(device)
     return mdl
 
