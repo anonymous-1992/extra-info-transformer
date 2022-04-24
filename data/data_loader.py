@@ -177,8 +177,7 @@ def download_weather(args):
         download_and_unzip(url, zip_path, csv_path, data_folder)
         return pd.read_csv(csv_path, index_col=0, encoding='unicode_escape')
 
-    url_list = ['https://www.bgc-jena.mpg.de/wetter/mpi_roof_2003a.zip',
-                'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2003b.zip',
+    url_list = [
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2004a.zip',
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2004b.zip',
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2005a.zip',
@@ -217,8 +216,7 @@ def download_weather(args):
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof_2021b.zip',
                 'https://www.bgc-jena.mpg.de/wetter/mpi_roof.zip']
 
-    csv_zip_list = ['mpi_roof_2003a', 'mpi_roof_2003a',
-                    'mpi_roof_2004a', 'mpi_roof_2004a',
+    csv_zip_list = ['mpi_roof_2004a', 'mpi_roof_2004a',
                     'mpi_roof_2005a', 'mpi_roof_2005a',
                     'mpi_roof_2006a', 'mpi_roof_2006a',
                     'mpi_roof_2007a', 'mpi_roof_2007a',
