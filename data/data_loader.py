@@ -27,11 +27,11 @@ import gc
 import glob
 
 
-from data import air_quality, electricity, traffic, watershed, solar, ett, weather
+from data import air_quality, electricity, traffic, watershed, solar, ett, weather, camel
 
 
 class ExperimentConfig(object):
-    default_experiments = ['electricity', 'traffic', 'air_quality',
+    default_experiments = ['electricity', 'traffic', 'air_quality', 'camel',
                            'favorita', 'watershed', 'solar', 'ETTm2', 'weather']
 
     def __init__(self, experiment='electricity', root_folder=None):
@@ -64,7 +64,8 @@ class ExperimentConfig(object):
             'watershed': 'watershed.csv',
             'solar': 'solar.csv',
             'ETTm2': 'ETT.csv',
-            'weather': 'weather.csv'
+            'weather': 'weather.csv',
+            'camel': 'camel.csv'
         }
 
         return os.path.join(self.data_folder, csv_map[self.experiment])
@@ -82,7 +83,8 @@ class ExperimentConfig(object):
             'watershed': watershed.WatershedFormatter,
             'solar': solar.SolarFormatter,
             'ETTm2': ett.ETTFormatter,
-            'weather': weather.weatherFormatter
+            'weather': weather.weatherFormatter,
+            'camel': camel.camelFormatter
         }
 
         return data_formatter_class[self.experiment]()
@@ -284,6 +286,53 @@ def download_ett(args):
             date - earliest_time).days * 24
     output['days_from_start'] = (date - earliest_time).days
     output.to_csv("ETTm2.csv")
+
+
+def download_camel(args):
+
+    """Downloads camels dataset"""
+    url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
+    data_folder = args.data_folder
+    data_path = os.path.join(data_folder, 'basin_timeseries_v1p2_metForcing_obsFlow.zip')
+    csv_path = os.path.join(data_folder, 'basin_timeseries_v1p2_metForcing_obsFlow.csv')
+    zip_path = data_path
+    download_and_unzip(url, zip_path, data_path, data_folder)
+    unzip(zip_path, csv_path, data_folder)
+    df_list = []
+    data_folder = os.path.join(args.data_folder, 'basin_dataset_public_v1p2', 'usgs_streamflow')
+    for dir in os.listdir(data_folder):
+        for file in os.listdir(os.path.join(data_folder, dir)):
+            f = os.path.join(data_folder, dir, file)
+            arrays = []
+            for line in open(f):
+                arrays.append(np.array([val for val in line.rstrip('\n').split(' ') if val != '']))
+            arrays = np.asarray(arrays)
+            arrays = arrays[:, :-1]
+            date = pd.DataFrame(["{}-{}-{}".format(a[1], a[2], a[2]) for a in arrays], columns=["date"])
+            id = pd.DataFrame(arrays[:, 0], columns=["id"])
+            streamflow = pd.DataFrame(arrays[:, -1], columns=["streamflow"])
+            df = pd.concat((date, id), axis=1)
+            df = pd.concat((df, streamflow), axis=1)
+            df.index = pd.to_datetime(df.date)
+            df.sort_index(inplace=True)
+
+            start_date = min(df.fillna(method='ffill').dropna().index)
+            end_date = max(df.fillna(method='bfill').dropna().index)
+
+            active_range = (df.index >= start_date) & (df.index <= end_date)
+            df = df[active_range].fillna(0.)
+            earliest_time = df.index.min()
+            date = df.index
+            df['day_of_week'] = date.dayofweek
+            df['hour'] = date.hour
+            df['categorical_id'] = df['id']
+            df['hours_from_start'] = (date - earliest_time).seconds / 60 / 60 + (
+                    date - earliest_time).days * 24
+            df['days_from_start'] = (date - earliest_time).days
+            df_list.append(df)
+
+        output = pd.concat(df_list, axis=0, join='outer').reset_index(drop=True)
+        output.to_csv("camel.csv")
 
 
 def download_air_quality(args):
@@ -826,7 +875,6 @@ def main(expt_name, force_download, output_folder):
     if os.path.exists(expt_config.data_csv_path) and not force_download:
         print('Data has been processed for {}. Skipping download...'.format(
             expt_name))
-        sys.exit(0)
     else:
         print('Resetting data folder...')
         #shutil.rmtree(expt_config.data_csv_path)
@@ -841,7 +889,8 @@ def main(expt_name, force_download, output_folder):
         'watershed': process_watershed,
         'solar': download_solar,
         'ETTm2': download_ett,
-        'weather': download_weather
+        'weather': download_weather,
+        'camel': download_camel
     }
 
     if expt_name not in download_functions:
