@@ -297,7 +297,6 @@ def download_camel(args):
     csv_path = os.path.join(data_folder, 'basin_timeseries_v1p2_metForcing_obsFlow.csv')
     zip_path = data_path
     download_and_unzip(url, zip_path, data_path, data_folder)
-    unzip(zip_path, csv_path, data_folder)
     df_list = []
     data_folder = os.path.join(args.data_folder, 'basin_dataset_public_v1p2', 'usgs_streamflow')
     for dir in os.listdir(data_folder):
