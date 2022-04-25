@@ -17,7 +17,7 @@ class camelFormatter(ElectricityFormatter):
         ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ('categorical_id', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),]
 
-    def split_data(self, df, valid_boundary=1, test_boundary=1):
+    def split_data(self, df, valid_boundary=10000, test_boundary=11000):
         """Splits data frame into training-validation-test data frames.
         This also calibrates scaling object, and transforms data for each split.
         Args:
