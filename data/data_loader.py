@@ -294,7 +294,6 @@ def download_camel(args):
     url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
     data_folder = args.data_folder
     data_path = os.path.join(data_folder, 'basin_timeseries_v1p2_metForcing_obsFlow.zip')
-    csv_path = os.path.join(data_folder, 'basin_timeseries_v1p2_metForcing_obsFlow.csv')
     zip_path = data_path
     download_and_unzip(url, zip_path, data_path, data_folder)
     df_list = []
