@@ -306,7 +306,7 @@ def download_camel(args):
                 arrays.append(np.array([val for val in line.rstrip('\n').split(' ') if val != '']))
             arrays = np.asarray(arrays)
             arrays = arrays[:, :-1]
-            date = pd.DataFrame(["{}-{}-{}".format(a[1], a[2], a[2]) for a in arrays], columns=["date"])
+            date = pd.DataFrame(["{}-{}-{}".format(a[1], a[2], a[3]) for a in arrays], columns=["date"])
             id = pd.DataFrame(arrays[:, 0], columns=["id"])
             streamflow = pd.DataFrame(arrays[:, -1], columns=["streamflow"])
             df = pd.concat((date, id), axis=1)
