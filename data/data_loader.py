@@ -298,6 +298,7 @@ def download_camel(args):
     download_and_unzip(url, zip_path, data_path, data_folder)'''
     df_list = []
     data_folder = os.path.join(args.data_folder, 'basin_dataset_public_v1p2', 'usgs_streamflow')
+    print(data_folder)
     for dir in os.listdir(data_folder):
         for file in os.listdir(os.path.join(data_folder, dir)):
             f = os.path.join(data_folder, dir, file)
@@ -330,7 +331,7 @@ def download_camel(args):
             df_list.append(df)
 
         output = pd.concat(df_list, axis=0, join='outer')
-        output = output.sort_index(inplace=True)
+        output.sort_index(inplace=True)
         output.to_csv("camel.csv")
 
 
