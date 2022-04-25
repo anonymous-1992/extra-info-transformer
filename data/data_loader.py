@@ -298,41 +298,39 @@ def download_camel(args):
     download_and_unzip(url, zip_path, data_path, data_folder)'''
     df_list = []
     data_folder = os.path.join(args.data_folder, 'basin_dataset_public_v1p2', 'usgs_streamflow')
-    print(data_folder)
-    for dir in os.listdir(data_folder):
-        for file in os.listdir(os.path.join(data_folder, dir)):
-            f = os.path.join(data_folder, dir, file)
-            arrays = []
-            for line in open(f):
-                arrays.append(np.array([val for val in line.rstrip('\n').split(' ') if val != '']))
-            arrays = np.asarray(arrays)
-            arrays = arrays[:, :-1]
-            date = pd.DataFrame(["{}-{}-{}".format(a[1], a[2], a[3]) for a in arrays], columns=["date"])
-            id = pd.DataFrame(arrays[:, 0], columns=["id"])
-            streamflow = pd.DataFrame(arrays[:, -1], columns=["streamflow"])
-            df = pd.concat((date, id), axis=1)
-            df = pd.concat((df, streamflow), axis=1)
-            df.index = pd.to_datetime(df.date)
-            df.sort_index(inplace=True)
-            df = df[df["streamflow"] != '-999.00']
-            start_date = min(df.fillna(method='ffill').dropna().index)
-            end_date = max(df.fillna(method='bfill').dropna().index)
+    for file in os.listdir(os.path.join(data_folder, '01')):
+        f = os.path.join(data_folder, '01', file)
+        arrays = []
+        for line in open(f):
+            arrays.append(np.array([val for val in line.rstrip('\n').split(' ') if val != '']))
+        arrays = np.asarray(arrays)
+        arrays = arrays[:, :-1]
+        date = pd.DataFrame(["{}-{}-{}".format(a[1], a[2], a[3]) for a in arrays], columns=["date"])
+        id = pd.DataFrame(arrays[:, 0], columns=["id"])
+        streamflow = pd.DataFrame(arrays[:, -1], columns=["streamflow"])
+        df = pd.concat((date, id), axis=1)
+        df = pd.concat((df, streamflow), axis=1)
+        df.index = pd.to_datetime(df.date)
+        df.sort_index(inplace=True)
+        df = df[df["streamflow"] != '-999.00']
+        start_date = min(df.fillna(method='ffill').dropna().index)
+        end_date = max(df.fillna(method='bfill').dropna().index)
 
-            active_range = (df.index >= start_date) & (df.index <= end_date)
-            df = df[active_range].fillna(0.)
-            earliest_time = df.index.min()
-            date = df.index
-            df['day_of_week'] = date.dayofweek
-            df['hour'] = date.hour
-            df['categorical_id'] = df['id']
-            df['hours_from_start'] = (date - earliest_time).seconds / 60 / 60 + (
-                    date - earliest_time).days * 24
-            df['days_from_start'] = (date - earliest_time).days
-            df_list.append(df)
+        active_range = (df.index >= start_date) & (df.index <= end_date)
+        df = df[active_range].fillna(0.)
+        earliest_time = df.index.min()
+        date = df.index
+        df['day_of_week'] = date.dayofweek
+        df['hour'] = date.hour
+        df['categorical_id'] = df['id']
+        df['hours_from_start'] = (date - earliest_time).seconds / 60 / 60 + (
+                date - earliest_time).days * 24
+        df['days_from_start'] = (date - earliest_time).days
+        df_list.append(df)
 
-        output = pd.concat(df_list, axis=0, join='outer')
-        output.sort_index(inplace=True)
-        output.to_csv("camel.csv")
+    output = pd.concat(df_list, axis=0, join='outer')
+    output.sort_index(inplace=True)
+    output.to_csv("camel.csv")
 
 
 def download_air_quality(args):
