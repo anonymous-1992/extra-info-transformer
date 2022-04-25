@@ -160,7 +160,6 @@ class ElectricityFormatter(GenericDataFormatter):
         # Transform real inputs per entity
         df_list = []
         for identifier, sliced in df.groupby(id_col):
-
             # Filter out any trajectories that are too short
             if len(sliced) >= self._time_steps:
                 sliced_copy = sliced.copy()
@@ -168,6 +167,7 @@ class ElectricityFormatter(GenericDataFormatter):
                     sliced_copy[real_inputs].values)
                 df_list.append(sliced_copy)
 
+        print(df_list)
         output = pd.concat(df_list, axis=0)
 
         # Format categorical inputs

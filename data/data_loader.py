@@ -291,11 +291,11 @@ def download_ett(args):
 def download_camel(args):
 
     """Downloads camels dataset"""
-    url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
+    '''url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
     data_folder = args.data_folder
     data_path = os.path.join(data_folder, 'basin_timeseries_v1p2_metForcing_obsFlow.zip')
     zip_path = data_path
-    download_and_unzip(url, zip_path, data_path, data_folder)
+    download_and_unzip(url, zip_path, data_path, data_folder)'''
     df_list = []
     data_folder = os.path.join(args.data_folder, 'basin_dataset_public_v1p2', 'usgs_streamflow')
     for dir in os.listdir(data_folder):
@@ -313,7 +313,7 @@ def download_camel(args):
             df = pd.concat((df, streamflow), axis=1)
             df.index = pd.to_datetime(df.date)
             df.sort_index(inplace=True)
-
+            df = df[df["streamflow"] != '-999.00']
             start_date = min(df.fillna(method='ffill').dropna().index)
             end_date = max(df.fillna(method='bfill').dropna().index)
 
@@ -329,7 +329,8 @@ def download_camel(args):
             df['days_from_start'] = (date - earliest_time).days
             df_list.append(df)
 
-        output = pd.concat(df_list, axis=0, join='outer').reset_index(drop=True)
+        output = pd.concat(df_list, axis=0, join='outer')
+        output = output.sort_index(inplace=True)
         output.to_csv("camel.csv")
 
 
@@ -934,7 +935,7 @@ if __name__ == '__main__':
 
         root_folder = None if args.output_folder == '.' else args.output_folder
 
-        return args.expt_name, args.force_download == 'yes', root_folder
+        return args.expt_name, args.force_download == 'no', root_folder
 
 
     name, force, folder = get_args()
