@@ -167,7 +167,6 @@ class ElectricityFormatter(GenericDataFormatter):
                     sliced_copy[real_inputs].values)
                 df_list.append(sliced_copy)
 
-        print(df_list)
         output = pd.concat(df_list, axis=0)
 
         # Format categorical inputs
