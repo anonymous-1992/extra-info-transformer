@@ -39,6 +39,17 @@ class camelFormatter(ElectricityFormatter):
 
         return (self.transform_inputs(data) for data in [train, valid, test])
 
+    def get_fixed_params(self):
+        """Returns fixed model parameters for experiments."""
+
+        fixed_params = {
+            'total_time_steps': 8 * 24,
+            'num_encoder_steps': 7 * 24,
+            'num_epochs': 80,
+        }
+
+        return fixed_params
+
     def get_num_samples_for_calibration(self):
         """Gets the default number of training and validation samples.
         Use to sub-sample the data for network calibration and a value of -1 uses
