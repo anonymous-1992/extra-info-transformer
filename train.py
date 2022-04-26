@@ -55,7 +55,7 @@ test_sample = batch_sampled_data(test, valid_max, args.total_steps,
                                      params['num_encoder_steps'], params["column_definition"])
 
 
-batch_size = 512
+batch_size = 1024
 log_b_size = math.ceil(math.log2(batch_size))
 l_b_size = math.ceil(math.log2(batch_size))
 param_history = list()
