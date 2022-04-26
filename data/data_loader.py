@@ -298,8 +298,8 @@ def download_camel(args):
     download_and_unzip(url, zip_path, data_path, data_folder)'''
     df_list = []
     data_folder = os.path.join(args.data_folder, 'basin_dataset_public_v1p2', 'usgs_streamflow')
-    for file in os.listdir(os.path.join(data_folder, '05')):
-        f = os.path.join(data_folder, '05', file)
+    for file in os.listdir(os.path.join(data_folder, '04')):
+        f = os.path.join(data_folder, '04', file)
         arrays = []
         for line in open(f):
             arrays.append(np.array([val for val in line.rstrip('\n').split(' ') if val != '']))
