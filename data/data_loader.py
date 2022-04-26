@@ -327,6 +327,7 @@ def download_camel(args):
             df['hours_from_start'] = (date - earliest_time).seconds / 60 / 60 + (
                     date - earliest_time).days * 24
             df['days_from_start'] = (date - earliest_time).days
+            df = df[df['days_from_start'] >= 7305].copy()
             df_list.append(df)
 
     output = pd.concat(df_list, axis=0, join='outer')

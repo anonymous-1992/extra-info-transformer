@@ -30,8 +30,8 @@ class AirQualityFormatter(ElectricityFormatter):
         ('hours_from_start', DataTypes.REAL_VALUED, InputTypes.TIME),
         ('NO2', DataTypes.REAL_VALUED, InputTypes.TARGET),
         ('CO', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
-        ('hour', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ('TEMP', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
+        ('hour', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ('day_of_week', DataTypes.REAL_VALUED, InputTypes.KNOWN_INPUT),
         ('id', DataTypes.REAL_VALUED, InputTypes.ID),
     ]
