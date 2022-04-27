@@ -95,7 +95,7 @@ class ScaledDotProductAttention(nn.Module):
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
 
-            self.n_linear = normalize(nn.Parameter(torch.randn(self.n*self.m), requires_grad=True), dim=0)
+            self.n_linear = normalize(nn.Parameter(torch.randn(self.n*self.m).to(device), requires_grad=True), dim=0)
 
     def get_new_rep(self, tnsr):
 
