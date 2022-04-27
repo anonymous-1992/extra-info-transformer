@@ -5,9 +5,6 @@ import torch.nn.functional as F
 import math
 import random
 
-from torch.nn.utils import weight_norm
-from torch.nn.functional import normalize
-
 np.random.seed(1234)
 random.seed(1234)
 
@@ -76,21 +73,21 @@ class ScaledDotProductAttention(nn.Module):
                                   (kernel_max_pool_b - 1) - 1) / kernel_max_pool_b) + 1)
 
             if "2d" in self.attn_type:
-                self.conv2d = weight_norm(nn.Conv2d(in_channels=d_k*n_heads,
+                self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                         out_channels=d_k*n_heads,
                                         kernel_size=(kernel_s, kernel_b),
                                         stride=(stride_s, stride_b),
-                                        padding=(padding_s, padding_b)).to(device))
+                                        padding=(padding_s, padding_b)).to(device)
 
                 self.max_pooling = \
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
             else:
-                self.conv2d = weight_norm(nn.Conv2d(in_channels=d_k*n_heads,
+                self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                         out_channels=d_k*n_heads,
                                         kernel_size=(kernel_s, 1),
                                         stride=(stride_s, 1),
-                                        padding=(padding_s, 0)).to(device))
+                                        padding=(padding_s, 0)).to(device)
                 self.max_pooling = \
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
