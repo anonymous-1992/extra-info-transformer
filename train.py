@@ -45,17 +45,18 @@ train_data, valid, test = formatter.split_data(raw_data)
 train_max, valid_max = formatter.get_num_samples_for_calibration()
 params = formatter.get_experiment_params()
 
-train_sample = batch_sampled_data(train_data, train_max, args.total_steps,
-                                     params['num_encoder_steps'], params["column_definition"])
-
-valid_sample = batch_sampled_data(valid, valid_max, args.total_steps,
-                                     params['num_encoder_steps'], params["column_definition"])
-
-test_sample = batch_sampled_data(test, valid_max, args.total_steps,
-                                     params['num_encoder_steps'], params["column_definition"])
-
-
 batch_size = 512
+
+train_sample = batch_sampled_data(train_data, train_max, batch_size, args.total_steps,
+                                     params['num_encoder_steps'], params["column_definition"])
+
+valid_sample = batch_sampled_data(valid, valid_max, batch_size, args.total_steps,
+                                     params['num_encoder_steps'], params["column_definition"])
+
+test_sample = batch_sampled_data(test, valid_max, batch_size, args.total_steps,
+                                     params['num_encoder_steps'], params["column_definition"])
+
+
 log_b_size = math.ceil(math.log2(batch_size))
 l_b_size = math.ceil(math.log2(batch_size))
 param_history = list()

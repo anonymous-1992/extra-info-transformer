@@ -14,6 +14,7 @@
 # limitations under the License.
 
 # Lint as: python3
+from itertools import chain
 
 import torch
 import numpy as np
@@ -49,7 +50,7 @@ def batching(batch_size, x_en, x_de, y_t, test_id):
     return X_en, X_de, Y_t, tst_id
 
 
-def batch_sampled_data(data, max_samples, time_steps, num_encoder_steps, column_definition):
+def batch_sampled_data(data, max_samples, batch_size, time_steps, num_encoder_steps, column_definition):
     """Samples segments into a compatible format.
     Args:
       data: Sources data to sample and batch
@@ -95,7 +96,10 @@ def batch_sampled_data(data, max_samples, time_steps, num_encoder_steps, column_
             valid_sampling_locations[i] for i in np.random.choice(
                 len(valid_sampling_locations), len(valid_sampling_locations), replace=False)
         ]
-    ranges.sort(key=takeSecond)
+    ranges = [ranges[i:i+batch_size] for i in range(0, len(ranges), batch_size)]
+    for ls in ranges:
+        ls.sort(key=takeSecond)
+    ranges = list(chain.from_iterable(ranges))
 
     id_col = utils.get_single_col_by_input_type(InputTypes.ID, column_definition)
     time_col = utils.get_single_col_by_input_type(InputTypes.TIME, column_definition)
