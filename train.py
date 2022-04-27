@@ -25,7 +25,7 @@ from optuna.trial import TrialState
 
 parser = argparse.ArgumentParser(description="train context-aware attention")
 parser.add_argument("--name", type=str, default='extra_info_attn')
-parser.add_argument("--exp_name", type=str, default='camel')
+parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_steps", type=int, default=216)

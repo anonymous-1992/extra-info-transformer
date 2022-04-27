@@ -389,83 +389,12 @@ def download_solar(args):
 
     download_and_unzip(url, zip_path, csv_path, data_folder)
 
-    files = [
-        'Actual_30.45_-88.25_2006_UPV_70MW_5_Min', 'Actual_30.55_-87.55_2006_UPV_80MW_5_Min',
-        'Actual_30.55_-87.75_2006_DPV_36MW_5_Min', 'Actual_30.55_-88.15_2006_DPV_38MW_5_Min',
-        'Actual_30.55_-88.25_2006_DPV_38MW_5_Min', 'Actual_30.65_-87.55_2006_UPV_50MW_5_Min',
-        'Actual_30.65_-87.65_2006_DPV_36MW_5_Min', 'Actual_30.65_-87.75_2006_DPV_36MW_5_Min',
-        'Actual_30.65_-87.85_2006_DPV_36MW_5_Min', 'Actual_30.65_-88.05_2006_DPV_38MW_5_Min',
-        'Actual_30.65_-88.15_2006_DPV_38MW_5_Min', 'Actual_30.65_-88.25_2006_DPV_38MW_5_Min',
-        'Actual_30.65_-88.35_2006_UPV_10MW_5_Min', 'Actual_30.75_-87.75_2006_DPV_36MW_5_Min',
-        'Actual_30.75_-87.95_2006_UPV_30MW_5_Min', 'Actual_30.75_-88.05_2006_DPV_38MW_5_Min',
-        'Actual_30.75_-88.15_2006_DPV_38MW_5_Min', 'Actual_30.75_-88.25_2006_DPV_38MW_5_Min',
-        'Actual_30.85_-88.15_2006_DPV_38MW_5_Min', 'Actual_31.05_-85.55_2006_UPV_20MW_5_Min',
-        'Actual_31.05_-85.65_2006_UPV_70MW_5_Min', 'Actual_31.05_-85.75_2006_UPV_60MW_5_Min',
-        'Actual_31.15_-85.15_2006_DPV_34MW_5_Min', 'Actual_31.15_-85.25_2006_DPV_34MW_5_Min',
-        'Actual_31.15_-86.65_2006_UPV_60MW_5_Min', 'Actual_31.15_-87.65_2006_UPV_30MW_5_Min',
-        'Actual_31.25_-85.25_2006_DPV_34MW_5_Min', 'Actual_31.25_-85.55_2006_UPV_50MW_5_Min',
-        'Actual_31.25_-85.65_2006_UPV_20MW_5_Min', 'Actual_31.35_-86.85_2006_UPV_20MW_5_Min',
-        'Actual_31.35_-87.05_2006_UPV_70MW_5_Min', 'Actual_31.35_-87.65_2006_UPV_100MW_5_Min',
-        'Actual_31.35_-88.05_2006_UPV_80MW_5_Min', 'Actual_31.45_-85.45_2006_UPV_50MW_5_Min',
-        'Actual_31.45_-85.75_2006_UPV_30MW_5_Min', 'Actual_31.95_-86.45_2006_UPV_30MW_5_Min',
-        'Actual_32.05_-85.95_2006_UPV_30MW_5_Min', 'Actual_32.15_-86.25_2006_DPV_39MW_5_Min',
-        'Actual_32.25_-85.25_2006_UPV_10MW_5_Min', 'Actual_32.25_-86.15_2006_DPV_39MW_5_Min',
-        'Actual_32.25_-86.25_2006_DPV_39MW_5_Min', 'Actual_32.25_-86.25_2006_UPV_60MW_5_Min',
-        'Actual_32.25_-86.35_2006_DPV_39MW_5_Min', 'Actual_32.35_-86.15_2006_DPV_39MW_5_Min',
-        'Actual_32.35_-86.25_2006_DPV_39MW_5_Min', 'Actual_32.55_-85.35_2006_DPV_35MW_5_Min',
-        'Actual_32.55_-85.35_2006_UPV_50MW_5_Min', 'Actual_32.55_-86.05_2006_DPV_27MW_5_Min',
-        'Actual_32.55_-86.15_2006_DPV_27MW_5_Min', 'Actual_32.55_-86.55_2006_UPV_40MW_5_Min',
-        'Actual_32.65_-85.25_2006_DPV_35MW_5_Min', 'Actual_32.65_-85.35_2006_DPV_35MW_5_Min',
-        'Actual_32.65_-85.85_2006_UPV_30MW_5_Min', 'Actual_32.65_-86.15_2006_DPV_27MW_5_Min',
-        'Actual_32.75_-85.35_2006_DPV_35MW_5_Min', 'Actual_32.75_-85.45_2006_UPV_90MW_5_Min',
-        'Actual_32.95_-85.45_2006_UPV_100MW_5_Min', 'Actual_33.15_-86.55_2006_DPV_35MW_5_Min',
-        'Actual_33.15_-86.65_2006_DPV_35MW_5_Min', 'Actual_33.15_-87.55_2006_DPV_39MW_5_Min',
-        'Actual_33.25_-86.55_2006_DPV_35MW_5_Min', 'Actual_33.25_-86.65_2006_DPV_35MW_5_Min',
-        'Actual_33.25_-86.75_2006_DPV_35MW_5_Min', 'Actual_33.25_-87.45_2006_DPV_39MW_5_Min',
-        'Actual_33.25_-87.55_2006_DPV_39MW_5_Min', 'Actual_33.25_-87.65_2006_DPV_39MW_5_Min',
-        'Actual_33.35_-86.05_2006_DPV_28MW_5_Min', 'Actual_33.35_-86.15_2006_DPV_28MW_5_Min',
-        'Actual_33.35_-86.55_2006_DPV_35MW_5_Min', 'Actual_33.35_-86.65_2006_DPV_35MW_5_Min',
-        'Actual_33.35_-86.75_2006_DPV_39MW_5_Min', 'Actual_33.35_-86.85_2006_DPV_39MW_5_Min',
-        'Actual_33.35_-86.95_2006_DPV_39MW_5_Min', 'Actual_33.35_-87.05_2006_DPV_39MW_5_Min',
-        'Actual_33.35_-87.45_2006_DPV_39MW_5_Min', 'Actual_33.35_-87.55_2006_DPV_39MW_5_Min',
-        'Actual_33.45_-85.85_2006_UPV_50MW_5_Min', 'Actual_33.45_-85.95_2006_UPV_40MW_5_Min',
-        'Actual_33.45_-86.15_2006_DPV_28MW_5_Min', 'Actual_33.45_-86.25_2006_UPV_40MW_5_Min',
-        'Actual_33.45_-86.65_2006_DPV_39MW_5_Min', 'Actual_33.45_-86.75_2006_DPV_39MW_5_Min',
-        'Actual_33.45_-86.85_2006_DPV_39MW_5_Min', 'Actual_33.45_-86.95_2006_DPV_39MW_5_Min',
-        'Actual_33.45_-87.05_2006_DPV_39MW_5_Min', 'Actual_33.55_-85.55_2006_UPV_60MW_5_Min',
-        'Actual_33.55_-86.65_2006_DPV_39MW_5_Min', 'Actual_33.55_-86.75_2006_DPV_39MW_5_Min',
-        'Actual_33.55_-86.85_2006_DPV_39MW_5_Min', 'Actual_33.55_-86.95_2006_DPV_39MW_5_Min',
-        'Actual_33.55_-87.05_2006_DPV_39MW_5_Min', 'Actual_33.65_-86.35_2006_UPV_80MW_5_Min',
-        'Actual_33.65_-86.65_2006_DPV_39MW_5_Min', 'Actual_33.65_-86.75_2006_DPV_39MW_5_Min',
-        'Actual_33.65_-86.85_2006_DPV_39MW_5_Min', 'Actual_33.65_-86.95_2006_DPV_39MW_5_Min',
-        'Actual_33.75_-85.75_2006_DPV_39MW_5_Min', 'Actual_33.75_-85.85_2006_DPV_39MW_5_Min',
-        'Actual_33.75_-86.25_2006_DPV_28MW_5_Min', 'Actual_33.75_-86.25_2006_UPV_20MW_5_Min',
-        'Actual_33.75_-86.35_2006_DPV_28MW_5_Min', 'Actual_33.75_-86.65_2006_DPV_39MW_5_Min',
-        'Actual_33.75_-86.75_2006_DPV_39MW_5_Min', 'Actual_33.75_-86.85_2006_DPV_39MW_5_Min',
-        'Actual_33.85_-85.85_2006_DPV_39MW_5_Min', 'Actual_33.85_-86.35_2006_DPV_28MW_5_Min',
-        'Actual_34.05_-85.95_2006_DPV_36MW_5_Min', 'Actual_34.05_-86.05_2006_DPV_36MW_5_Min',
-        'Actual_34.15_-85.55_2006_UPV_70MW_5_Min', 'Actual_34.15_-86.05_2006_DPV_36MW_5_Min',
-        'Actual_34.15_-86.75_2006_DPV_35MW_5_Min', 'Actual_34.15_-86.85_2006_DPV_35MW_5_Min',
-        'Actual_34.25_-86.85_2006_DPV_35MW_5_Min', 'Actual_34.35_-86.25_2006_DPV_38MW_5_Min',
-        'Actual_34.35_-86.35_2006_DPV_38MW_5_Min', 'Actual_34.35_-86.85_2006_DPV_37MW_5_Min',
-        'Actual_34.45_-86.35_2006_DPV_38MW_5_Min', 'Actual_34.45_-86.75_2006_DPV_37MW_5_Min',
-        'Actual_34.45_-86.85_2006_DPV_37MW_5_Min', 'Actual_34.55_-86.85_2006_DPV_37MW_5_Min',
-        'Actual_34.65_-86.45_2006_DPV_38MW_5_Min', 'Actual_34.65_-86.55_2006_DPV_38MW_5_Min',
-        'Actual_34.65_-86.65_2006_DPV_38MW_5_Min', 'Actual_34.75_-86.35_2006_DPV_38MW_5_Min',
-        'Actual_34.75_-86.45_2006_DPV_38MW_5_Min', 'Actual_34.75_-86.55_2006_DPV_38MW_5_Min',
-        'Actual_34.75_-86.65_2006_DPV_38MW_5_Min', 'Actual_34.85_-86.45_2006_DPV_38MW_5_Min',
-        'Actual_34.85_-86.55_2006_DPV_38MW_5_Min', 'Actual_34.85_-86.65_2006_DPV_38MW_5_Min',
-        'Actual_34.85_-86.85_2006_DPV_33MW_5_Min', 'Actual_34.85_-86.95_2006_DPV_33MW_5_Min',
-        'Actual_34.95_-86.55_2006_DPV_38MW_5_Min', 'Actual_34.95_-86.95_2006_DPV_33MW_5_Min',
-        'Actual_34.95_-87.55_2006_DPV_38MW_5_Min', 'Actual_34.95_-87.65_2006_DPV_38MW_5_Min',
-        'Actual_35.05_-87.65_2006_DPV_38MW_5_Min'
-    ]
-
     df_list = []
 
-    for file in files:
+    for file in os.listdir(csv_path):
+
         parts = file.split("_")
-        df = pd.read_csv(os.path.join(data_folder, '{}.csv'.format(file)), index_col=0, sep=',')
+        df = pd.read_csv(file, index_col=0, sep=',')
         df_hr = df.iloc[0::12, :]
         df_sub = df_hr.copy()
         df_sub['latitude'] = parts[1]
