@@ -80,7 +80,7 @@ class ScaledDotProductAttention(nn.Module):
                                         out_channels=d_k*n_heads,
                                         kernel_size=(kernel_s, kernel_b),
                                         stride=(stride_s, stride_b),
-                                        padding=(padding_s, padding_b)))
+                                        padding=(padding_s, padding_b)).to(device))
 
                 self.max_pooling = \
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
@@ -90,7 +90,7 @@ class ScaledDotProductAttention(nn.Module):
                                         out_channels=d_k*n_heads,
                                         kernel_size=(kernel_s, 1),
                                         stride=(stride_s, 1),
-                                        padding=(padding_s, 0)))
+                                        padding=(padding_s, 0)).to(device))
                 self.max_pooling = \
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
