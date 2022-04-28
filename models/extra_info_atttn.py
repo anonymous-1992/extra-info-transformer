@@ -92,7 +92,7 @@ class ScaledDotProductAttention(nn.Module):
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
 
-            self.linear_k = nn.Parameter(torch.rand(self.n*self.m), requires_grad=True).to(device)
+            self.linear_k = nn.Parameter(torch.randn(self.n*self.m), requires_grad=True).to(device)
 
     def get_new_rep(self, tnsr):
 
@@ -121,10 +121,11 @@ class ScaledDotProductAttention(nn.Module):
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
             n = K_e.shape[2]
-            K_l = torch.einsum('bhnd,n->bhnd', K_e, self.linear_k) + \
-                  torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - self.linear_k)
-            V_l = torch.einsum('bhnd,n->bhnd', V_e, self.linear_k) + \
-                  torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - self.linear_k)
+            linear_k = torch.sigmoid(self.linear_k)
+            K_l = torch.einsum('bhnd,n->bhnd', K_e, linear_k) + \
+                  torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - linear_k)
+            V_l = torch.einsum('bhnd,n->bhnd', V_e, linear_k) + \
+                  torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - linear_k)
             K[:, :, -n:, :] = K_l
             V[:, :, -n:, :] = V_l
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
