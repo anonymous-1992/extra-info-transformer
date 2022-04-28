@@ -30,7 +30,7 @@ parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_steps", type=int, default=216)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='extra_info_attn_2d')
+parser.add_argument("--attn_type", type=str, default='basic_attn')
 args = parser.parse_args()
 
 n_distinct_trial = 1
@@ -246,7 +246,7 @@ def evaluate():
     model = best_model
     model.eval()
 
-    sample_data = batch_sampled_data(test, valid_max, args.total_steps,
+    sample_data = batch_sampled_data(test, valid_max, batch_size, args.total_steps,
                                      params['num_encoder_steps'], params["column_definition"])
     test_en, test_de, test_y, test_id = torch.from_numpy(sample_data['enc_inputs']), \
                                         torch.from_numpy(sample_data['dec_inputs']), \
