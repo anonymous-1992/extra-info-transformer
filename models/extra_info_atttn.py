@@ -17,29 +17,37 @@ def get_attn_subsequent_mask(seq):
 
 
 class PositionalEncoding(nn.Module):
-
-    def __init__(self, d_hid, device, n_position=512):
+    """Positional encoding."""
+    def __init__(self, d_hid, device, max_len=1000):
         super(PositionalEncoding, self).__init__()
-        self.device = device
+        # Create a long enough `P`
+        self.P = torch.zeros((1, max_len, d_hid)).to(device)
+        X = torch.arange(max_len, dtype=torch.float32).reshape(
+            -1, 1) / torch.pow(10000, torch.arange(
+            0, d_hid, 2, dtype=torch.float32) / d_hid)
+        self.P[:, :, 0::2] = torch.sin(X)
+        self.P[:, :, 1::2] = torch.cos(X)
 
-        # Not a parameter
-        self.register_buffer('pos_table', self._get_sinusoid_encoding_table(n_position, d_hid))
+    def forward(self, X):
+        X = X + self.P[:, :X.shape[1], :].to(X.device)
+        return X
 
-    def _get_sinusoid_encoding_table(self, n_position, d_hid):
-        ''' Sinusoid position encoding table '''
-        # TODO: make it with torch instead of numpy
 
-        def get_position_angle_vec(position):
-            return [position / np.power(10000, 2 * (hid_j // 2) / d_hid) for hid_j in range(d_hid)]
+class PositionalEncoding_2d(nn.Module):
+    """Positional encoding."""
+    def __init__(self, d_hid, device, max_len=500):
+        super(PositionalEncoding_2d, self).__init__()
+        # Create a long enough `P`
+        self.P = torch.zeros((1, 1, max_len, d_hid)).to(device)
+        X = torch.arange(max_len, dtype=torch.float32).reshape(
+            -1, 1) / torch.pow(10000, torch.arange(
+            0, d_hid, 2, dtype=torch.float32) / d_hid)
+        self.P[:, :, :, 1::2] = torch.sin(X)
+        self.P[:, :, :, 1::2] = torch.cos(X)
 
-        sinusoid_table = np.array([get_position_angle_vec(pos_i) for pos_i in range(n_position)])
-        sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
-        sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
-
-        return torch.FloatTensor(sinusoid_table).unsqueeze(0).to(self.device)
-
-    def forward(self, x):
-        return x + self.pos_table[:, :x.size(1)].clone().detach()
+    def forward(self, X):
+        X = X + self.P[:, :, :X.shape[2], :]
+        return X
 
 
 class ScaledDotProductAttention(nn.Module):
@@ -54,7 +62,7 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
-        self.pos_emb = PositionalEncoding(
+        self.pos_emb = PositionalEncoding_2d(
             d_hid=d_k*n_heads,
             device=device)
         if "extra_info_attn" in self.attn_type:
@@ -66,7 +74,7 @@ class ScaledDotProductAttention(nn.Module):
             stride_b = 1 if kernel_b == 1 else int(kernel_b / 2)
             l_k = math.floor(((l_k + 2 * padding_s - (kernel_s - 1) - 1) / stride_s) + 1)
             n_ext_info = math.floor(((n_ext_info + 2 * padding_b - kernel_b) / stride_b) + 1)
-            kernel_max_pool_s = math.ceil(l_k / self.num_past_info)
+            kernel_max_pool_s = self.num_past_info
             kernel_max_pool_b = math.ceil(n_ext_info / self.num_past_info)
             padding_max_pooling_s = int((kernel_max_pool_s - 1)/2)
             padding_max_pooling_b = int((kernel_max_pool_b - 1) / 2)
@@ -106,6 +114,8 @@ class ScaledDotProductAttention(nn.Module):
         tnsr = tnsr.reshape(b, h * d, l_k, self.n_ext_info)
         tnsr = self.conv2d(tnsr)
         tnsr = self.max_pooling(tnsr)
+        tnsr = tnsr.reshape(b, self.m, self.n, d*h)
+        tnsr = self.pos_emb(tnsr)
         tnsr = tnsr.view(b, h, self.n*self.m, d)
         return tnsr
 
@@ -122,20 +132,16 @@ class ScaledDotProductAttention(nn.Module):
 
         elif "extra_info_attn" in self.attn_type:
 
-            b, h, l, d = K.shape
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
             n = K_e.shape[2]
-            K_l = torch.stack([K_e, K[:, :, -n:, :].clone()], dim=-1)
-            K_l, index = torch.max(K_l, dim=-1)
-            V_l = torch.stack([V_e, V[:, :, -n:, :].clone()], dim=-1)
-            index = index.unsqueeze(-1).repeat(1, 1, 1, 1, 2)
-            V_l = torch.gather(V_l, -1, index)
-            V_l = V_l[:, :, :, :, 0]
+            linear_k = torch.sigmoid(self.linear_k)
+            K_l = torch.einsum('bhnd,n->bhnd', K_e, linear_k) + \
+                  torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - linear_k)
+            V_l = torch.einsum('bhnd,n->bhnd', V_e, linear_k) + \
+                  torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - linear_k)
             K[:, :, -n:, :] = K_l
             V[:, :, -n:, :] = V_l
-            K = self.pos_emb(K.reshape(b, l, d*h)).reshape(b, h, l, d)
-            V = self.pos_emb(V.reshape(b, l, d * h)).reshape(b, h, l, d)
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
