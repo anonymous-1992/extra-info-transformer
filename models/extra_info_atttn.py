@@ -62,20 +62,16 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
-        self.pos_emb = PositionalEncoding_2d(
-            d_hid=d_k*n_heads,
-            device=device)
         if "extra_info_attn" in self.attn_type:
 
-            self.num_past_info = math.ceil(math.log2(b_size))
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
-            stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
+            stride_s = 1
             stride_b = 1 if kernel_b == 1 else int(kernel_b / 2)
             l_k = math.floor(((l_k + 2 * padding_s - (kernel_s - 1) - 1) / stride_s) + 1)
             n_ext_info = math.floor(((n_ext_info + 2 * padding_b - kernel_b) / stride_b) + 1)
-            kernel_max_pool_s = self.num_past_info
-            kernel_max_pool_b = math.ceil(n_ext_info / self.num_past_info)
+            kernel_max_pool_s = 1
+            kernel_max_pool_b = n_ext_info
             padding_max_pooling_s = int((kernel_max_pool_s - 1)/2)
             padding_max_pooling_b = int((kernel_max_pool_b - 1) / 2)
             self.m = math.floor(((l_k + 2 * padding_max_pooling_s - 1 *
@@ -114,8 +110,6 @@ class ScaledDotProductAttention(nn.Module):
         tnsr = tnsr.reshape(b, h * d, l_k, self.n_ext_info)
         tnsr = self.conv2d(tnsr)
         tnsr = self.max_pooling(tnsr)
-        tnsr = tnsr.reshape(b, self.m, self.n, d*h)
-        tnsr = self.pos_emb(tnsr)
         tnsr = tnsr.view(b, h, self.n*self.m, d)
         return tnsr
 
