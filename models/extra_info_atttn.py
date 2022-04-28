@@ -54,6 +54,9 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
+        self.pos_emb = PositionalEncoding(
+            d_hid=d_k*n_heads,
+            device=device)
         if "extra_info_attn" in self.attn_type:
 
             self.num_past_info = math.ceil(math.log2(b_size))
@@ -118,16 +121,21 @@ class ScaledDotProductAttention(nn.Module):
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
         elif "extra_info_attn" in self.attn_type:
+
+            b, h, l, d = K.shape
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
             n = K_e.shape[2]
-            linear_k = torch.sigmoid(self.linear_k)
-            K_l = torch.einsum('bhnd,n->bhnd', K_e, linear_k) + \
-                  torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - linear_k)
-            V_l = torch.einsum('bhnd,n->bhnd', V_e, linear_k) + \
-                  torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - linear_k)
+            K_l = torch.stack([K_e, K[:, :, -n:, :].clone()], dim=-1)
+            K_l, index = torch.max(K_l, dim=-1)
+            V_l = torch.stack([V_e, V[:, :, -n:, :].clone()], dim=-1)
+            index = index.unsqueeze(-1).repeat(1, 1, 1, 1, 2)
+            V_l = torch.gather(V_l, -1, index)
+            V_l = V_l[:, :, :, :, 0]
             K[:, :, -n:, :] = K_l
             V[:, :, -n:, :] = V_l
+            K = self.pos_emb(K.reshape(b, l, d*h)).reshape(b, h, l, d)
+            V = self.pos_emb(V.reshape(b, l, d * h)).reshape(b, h, l, d)
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
