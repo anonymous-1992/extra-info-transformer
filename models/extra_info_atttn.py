@@ -168,7 +168,7 @@ class ScaledDotProductAttention(nn.Module):
                   torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - linear_k)
             K[:, :, -n:, :] = K_l
             V[:, :, -n:, :] = V_l'''
-            #K = self.pos_emb(K.reshape(b, -1, h * d)).reshape(b, h, -1, d)
+            K = self.pos_emb(K.reshape(b, -1, h * d)).reshape(b, h, -1, d)
             scores = (torch.einsum('bhqd,bhkd-> bhqk', Q, K)) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
