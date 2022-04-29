@@ -131,8 +131,9 @@ class ScaledDotProductAttention(nn.Module):
         if self.attn_type == "basic_attn" or not self.enc_attn:
 
             QEr = torch.einsum('bhqd, kd -> bhqk', Q, self.Er)
-            Srel = self.skew(QEr)
-            scores = (torch.einsum('bhqd, bhkd -> bhqk', Q, K)+Srel)/ np.sqrt(self.d_k)
+            QEr = torch.einsum('bhqd, kd -> bhqk', Q, self.Er)
+            Srel = torch.einsum('bhkq->bhqk', self.skew(QEr))
+            scores = (torch.einsum('bhqd, bhkd -> bhqk', Q, K)+Srel) / np.sqrt(self.d_k)
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
                 attn_mask = attn_mask.to(self.device)
