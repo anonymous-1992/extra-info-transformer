@@ -62,16 +62,18 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
+        self.Er = nn.Parameter(torch.randn(l_k, d_k).to(device), requires_grad=True)
         if "extra_info_attn" in self.attn_type:
 
+            self.num_past_info = math.ceil(math.log2(b_size))
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
-            stride_s = 1
+            stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
             stride_b = 1 if kernel_b == 1 else int(kernel_b / 2)
             l_k = math.floor(((l_k + 2 * padding_s - (kernel_s - 1) - 1) / stride_s) + 1)
             n_ext_info = math.floor(((n_ext_info + 2 * padding_b - kernel_b) / stride_b) + 1)
-            kernel_max_pool_s = 1
-            kernel_max_pool_b = n_ext_info
+            kernel_max_pool_s = math.ceil(l_k / self.num_past_info)
+            kernel_max_pool_b = math.ceil(n_ext_info / self.num_past_info)
             padding_max_pooling_s = int((kernel_max_pool_s - 1)/2)
             padding_max_pooling_b = int((kernel_max_pool_b - 1) / 2)
             self.m = math.floor(((l_k + 2 * padding_max_pooling_s - 1 *
@@ -99,7 +101,7 @@ class ScaledDotProductAttention(nn.Module):
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
 
-            self.linear_k = nn.Parameter(torch.randn(self.n*self.m), requires_grad=True).to(device)
+            self.linear_k = nn.Parameter(torch.randn(self.n*self.m).to(device), requires_grad=True)
 
     def get_new_rep(self, tnsr):
 
@@ -113,10 +115,24 @@ class ScaledDotProductAttention(nn.Module):
         tnsr = tnsr.view(b, h, self.n*self.m, d)
         return tnsr
 
+    def skew(self, QEr):
+        # QEr.shape = (batch_size, num_heads, seq_len, seq_len)
+        padded = F.pad(QEr, (1, 0))
+        # padded.shape = (batch_size, num_heads, seq_len, 1 + seq_len)
+        batch_size, num_heads, num_rows, num_cols = padded.shape
+        reshaped = padded.reshape(batch_size, num_heads, num_cols, num_rows)
+        # reshaped.size = (batch_size, num_heads, 1 + seq_len, seq_len)
+        Srel = reshaped[:, :, 1:, :]
+        # Srel.shape = (batch_size, num_heads, seq_len, seq_len)
+        return Srel
+
     def forward(self, Q, K, V, attn_mask):
 
         if self.attn_type == "basic_attn" or not self.enc_attn:
-            scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
+
+            QEr = torch.einsum('bhqd, kd -> bhqk', Q, self.Er)
+            Srel = self.skew(QEr)
+            scores = (torch.einsum('bhqd, bhkd -> bhqk', Q, K)+Srel)/ np.sqrt(self.d_k)
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
                 attn_mask = attn_mask.to(self.device)
@@ -136,7 +152,9 @@ class ScaledDotProductAttention(nn.Module):
                   torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - linear_k)
             K[:, :, -n:, :] = K_l
             V[:, :, -n:, :] = V_l
-            scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
+            QEr = torch.einsum('bhqd, kd -> bhqk', Q, self.Er)
+            Srel = torch.einsum('bhkq->bhqk', self.skew(QEr))
+            scores = (torch.einsum('bhqd,bhkd-> bhqk', Q, K) + Srel) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
@@ -257,7 +275,7 @@ class Encoder(nn.Module):
 
     def forward(self, enc_input):
 
-        enc_outputs = self.pos_emb(enc_input)
+        enc_outputs = enc_input
 
         enc_self_attn_mask = None
 
@@ -333,7 +351,7 @@ class Decoder(nn.Module):
 
     def forward(self, dec_inputs, enc_outputs):
 
-        dec_outputs = self.pos_emb(dec_inputs)
+        dec_outputs = dec_inputs
 
         dec_self_attn_subsequent_mask = get_attn_subsequent_mask(dec_inputs)
 
