@@ -63,14 +63,12 @@ class ScaledDotProductAttention(nn.Module):
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
 
-        #self.Er = nn.Parameter(torch.randn(l_k, d_k).to(device), requires_grad=True)\
         self.pos_emb = PositionalEncoding(
             d_hid=n_heads*d_k,
             device=device)
         if "extra_info_attn" in self.attn_type:
 
             self.num_past_info = math.ceil(math.log2(b_size))
-            self.l_k = l_k
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
             stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
