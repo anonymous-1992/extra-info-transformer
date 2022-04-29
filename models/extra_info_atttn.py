@@ -62,7 +62,11 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
-        self.Er = nn.Parameter(torch.randn(l_k, d_k).to(device), requires_grad=True)
+
+        #self.Er = nn.Parameter(torch.randn(l_k, d_k).to(device), requires_grad=True)\
+        self.pos_emb = PositionalEncoding(
+            d_hid=n_heads*d_k,
+            device=device)
         if "extra_info_attn" in self.attn_type:
 
             self.num_past_info = math.ceil(math.log2(b_size))
@@ -130,9 +134,13 @@ class ScaledDotProductAttention(nn.Module):
 
         if self.attn_type == "basic_attn" or not self.enc_attn:
 
-            QEr = torch.einsum('bhqd, kd -> bhqk', Q, self.Er)
-            Srel = torch.einsum('bhkq->bhqk', self.skew(QEr))
-            scores = (torch.einsum('bhqd, bhkd -> bhqk', Q, K)+Srel) / np.sqrt(self.d_k)
+            b, h, _, d = Q.shape
+
+            Q = self.pos_emb(Q.reshape(b, -1, h*d)).reshape(b, h, -1, d)
+            K = self.pos_emb(K.reshape(b, -1, h*d)).reshape(b, h, -1, d)
+            V = self.pos_emb(V.reshape(b, -1, h*d)).reshape(b, h, -1, d)
+
+            scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
                 attn_mask = attn_mask.to(self.device)
@@ -142,6 +150,7 @@ class ScaledDotProductAttention(nn.Module):
 
         elif "extra_info_attn" in self.attn_type:
 
+            b, h, _, d = Q.shape
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
             n = K_e.shape[2]
@@ -152,9 +161,12 @@ class ScaledDotProductAttention(nn.Module):
                   torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - linear_k)
             K[:, :, -n:, :] = K_l
             V[:, :, -n:, :] = V_l
-            QEr = torch.einsum('bhqd, kd -> bhqk', Q, self.Er)
-            Srel = torch.einsum('bhkq->bhqk', self.skew(QEr))
-            scores = (torch.einsum('bhqd,bhkd-> bhqk', Q, K) + Srel) / np.sqrt(self.d_k)
+
+            Q = self.pos_emb(Q.reshape(b, -1, h * d)).reshape(b, h, -1, d)
+            K = self.pos_emb(K.reshape(b, -1, h * d)).reshape(b, h, -1, d)
+            V = self.pos_emb(V.reshape(b, -1, h * d)).reshape(b, h, -1, d)
+
+            scores = (torch.einsum('bhqd,bhkd-> bhqk', Q, K)) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
