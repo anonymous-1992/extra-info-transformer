@@ -85,6 +85,8 @@ class ScaledDotProductAttention(nn.Module):
             self.n = math.floor(((n_ext_info + 2 * padding_max_pooling_b - 1 *
                                   (kernel_max_pool_b - 1) - 1) / kernel_max_pool_b) + 1)
 
+            kernel_out = math.ceil(l_k / (l_k - (self.m + self.n)))
+            padding_out = int((kernel_out - 1)/2)
             if "2d" in self.attn_type:
                 self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                         out_channels=d_k*n_heads,
@@ -105,7 +107,12 @@ class ScaledDotProductAttention(nn.Module):
                     nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
                                  padding=(padding_max_pooling_s, padding_max_pooling_b))
 
-            self.linear_k = nn.Parameter(torch.randn(self.n*self.m).to(device), requires_grad=True)
+            self.conv1d = nn.Conv1d(in_channels=d_k*n_heads,
+                                    out_channels=d_k*n_heads,
+                                    kernel_size=kernel_out,
+                                    stride=kernel_out,
+                                    padding=padding_out).to(device)
+            #self.linear_k = nn.Parameter(torch.randn(self.n*self.m).to(device), requires_grad=True)
 
     def get_new_rep(self, tnsr):
 
@@ -136,10 +143,6 @@ class ScaledDotProductAttention(nn.Module):
 
             b, h, _, d = Q.shape
 
-            Q = self.pos_emb(Q.reshape(b, -1, h*d)).reshape(b, h, -1, d)
-            K = self.pos_emb(K.reshape(b, -1, h*d)).reshape(b, h, -1, d)
-            V = self.pos_emb(V.reshape(b, -1, h*d)).reshape(b, h, -1, d)
-
             scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             if attn_mask is not None:
                 attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
@@ -153,19 +156,19 @@ class ScaledDotProductAttention(nn.Module):
             b, h, _, d = Q.shape
             K_e = self.get_new_rep(K)
             V_e = self.get_new_rep(V)
-            n = K_e.shape[2]
-            linear_k = torch.sigmoid(self.linear_k)
-            K_l = torch.einsum('bhnd,n->bhnd', K_e, linear_k) + \
+            '''n = K_e.shape[2]
+            linear_k = torch.sigmoid(self.linear_k)'''
+            K_n = self.conv1d(K.reshape(b, h*d, -1)).reshape(b, h, -1, d)
+            V_n = self.conv1d(V.reshape(b, h*d, -1)).reshape(b, h, -1, d)
+            K = torch.stack([K_e, K_n], dim=2)
+            V = torch.stack([V_e, V_n], dim=2)
+            '''K_l = torch.einsum('bhnd,n->bhnd', K_e, linear_k) + \
                   torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - linear_k)
             V_l = torch.einsum('bhnd,n->bhnd', V_e, linear_k) + \
                   torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - linear_k)
             K[:, :, -n:, :] = K_l
-            V[:, :, -n:, :] = V_l
-
-            Q = self.pos_emb(Q.reshape(b, -1, h * d)).reshape(b, h, -1, d)
-            K = self.pos_emb(K.reshape(b, -1, h * d)).reshape(b, h, -1, d)
-            V = self.pos_emb(V.reshape(b, -1, h * d)).reshape(b, h, -1, d)
-
+            V[:, :, -n:, :] = V_l'''
+            #K = self.pos_emb(K.reshape(b, -1, h * d)).reshape(b, h, -1, d)
             scores = (torch.einsum('bhqd,bhkd-> bhqk', Q, K)) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
@@ -287,7 +290,7 @@ class Encoder(nn.Module):
 
     def forward(self, enc_input):
 
-        enc_outputs = enc_input
+        enc_outputs = self.pos_emb(enc_input)
 
         enc_self_attn_mask = None
 
@@ -363,7 +366,7 @@ class Decoder(nn.Module):
 
     def forward(self, dec_inputs, enc_outputs):
 
-        dec_outputs = dec_inputs
+        dec_outputs = self.pos_emb(dec_inputs)
 
         dec_self_attn_subsequent_mask = get_attn_subsequent_mask(dec_inputs)
 
