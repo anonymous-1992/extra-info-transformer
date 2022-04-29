@@ -70,6 +70,7 @@ class ScaledDotProductAttention(nn.Module):
         if "extra_info_attn" in self.attn_type:
 
             self.num_past_info = math.ceil(math.log2(b_size))
+            self.l_k = l_k
             padding_s = int((kernel_s - 1) / 2)
             padding_b = int((kernel_b - 1) / 2)
             stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
@@ -85,7 +86,7 @@ class ScaledDotProductAttention(nn.Module):
             self.n = math.floor(((n_ext_info + 2 * padding_max_pooling_b - 1 *
                                   (kernel_max_pool_b - 1) - 1) / kernel_max_pool_b) + 1)
 
-            kernel_out = math.ceil(l_k / (l_k - (self.m + self.n)))
+            kernel_out = math.ceil(self.l_k / (self.l_k - (self.m + self.n)))
             padding_out = int((kernel_out - 1)/2)
             if "2d" in self.attn_type:
                 self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
@@ -160,8 +161,8 @@ class ScaledDotProductAttention(nn.Module):
             linear_k = torch.sigmoid(self.linear_k)'''
             K_n = self.conv1d(K.reshape(b, h*d, -1)).reshape(b, h, -1, d)
             V_n = self.conv1d(V.reshape(b, h*d, -1)).reshape(b, h, -1, d)
-            K = torch.stack([K_e, K_n], dim=2)
-            V = torch.stack([V_e, V_n], dim=2)
+            K = torch.cat((K_e, K_n), dim=2)
+            V = torch.cat((V_e, V_n), dim=2)
             '''K_l = torch.einsum('bhnd,n->bhnd', K_e, linear_k) + \
                   torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - linear_k)
             V_l = torch.einsum('bhnd,n->bhnd', V_e, linear_k) + \
