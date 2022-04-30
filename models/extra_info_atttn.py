@@ -47,7 +47,7 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
 
         if "extra_info_attn" in self.attn_type:
-            self.shrink = nn.Parameter(torch.randn(self.n_ext_info).to(device), requires_grad=True)
+            pass
 
     def get_new_rep(self, tnsr):
 
