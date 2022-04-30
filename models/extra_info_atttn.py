@@ -50,6 +50,7 @@ class ScaledDotProductAttention(nn.Module):
             self.WQ = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False).to(device)
             self.WK = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False).to(device)
             self.WV = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False).to(device)
+            self.shrink = nn.Parameter(torch.randn(self.n_ext_info).to(device), requires_grad=True)
 
     def get_new_rep(self, tnsr):
 
@@ -68,9 +69,10 @@ class ScaledDotProductAttention(nn.Module):
         k = get_unfolded(k)
         v = get_unfolded(v)
 
-        score = torch.einsum('bhqnd, bhknd-> bhqkn', q, k) / np.sqrt(self.d_k)
+        score = torch.einsum('bhqnd, bhknd-> bhqk', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
-        context = torch.einsum('bhqkn, bhknd -> bhqd', attn, v)
+        v = torch.einsum('bhknd, n-> bhkd', v, self.shrink)
+        context = torch.einsum('bhqk, bhkd -> bhqd', attn, v)
         return context
 
     def forward(self, Q, K, V, attn_mask):
