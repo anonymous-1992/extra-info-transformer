@@ -47,9 +47,6 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
 
         if "extra_info_attn" in self.attn_type:
-            self.WQ = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False).to(device)
-            self.WK = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False).to(device)
-            self.WV = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False).to(device)
             self.shrink = nn.Parameter(torch.randn(self.n_ext_info).to(device), requires_grad=True)
 
     def get_new_rep(self, tnsr):
@@ -62,22 +59,18 @@ class ScaledDotProductAttention(nn.Module):
             return t
 
         b, h, l, d = tnsr.shape
-        q = self.WQ(tnsr.reshape(b, l, h*d)).reshape(b, h, l, d)
-        k = self.WK(tnsr.reshape(b, l, h*d)).reshape(b, h, l, d)
-        v = self.WV(tnsr.reshape(b, l, h*d)).reshape(b, h, l, d)
-        q = get_unfolded(q)
-        k = get_unfolded(k)
-        v = get_unfolded(v)
+        q = get_unfolded(tnsr)
+        k = get_unfolded(tnsr)
+        v = get_unfolded(tnsr)
 
         score = torch.einsum('bhqnd, bhknd-> bhqk', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
-        v = torch.einsum('bhknd, n-> bhkd', v, self.shrink)
-        context = torch.einsum('bhqk, bhkd -> bhqd', attn, v)
+        context = torch.einsum('bhqk, bhknd -> bhqd', attn, v)
         return context
 
     def forward(self, Q, K, V, attn_mask):
 
-        if self.attn_type == "basic_attn":
+        if self.attn_type == "basic_attn" or not self:
 
             scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             if attn_mask is not None:
