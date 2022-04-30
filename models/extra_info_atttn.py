@@ -47,7 +47,7 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
 
         if "extra_info_attn" in self.attn_type:
-            self.shrink = nn.Parameter(torch.randn(self.n_ext_info).to(device), requires_grad=True)
+            self.max_pooling = nn.MaxPool2d(kernel_size=(self.n_ext_info, 1))
 
     def get_new_rep(self, tnsr):
 
@@ -67,7 +67,7 @@ class ScaledDotProductAttention(nn.Module):
         score = torch.einsum('bhqnd, bhqmd-> bhqnm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
         context = torch.einsum('bhknn, bhknd -> bhknd', attn, v)
-        context = torch.einsum('bhknd, n -> bhkd', context, self.shrink)
+        context = self.max_pooling(context.reshape(b, h*d, -1, l)).reshape(b, h, l, d)
         return context
 
     def forward(self, Q, K, V, attn_mask):
