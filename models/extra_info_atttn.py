@@ -52,6 +52,7 @@ class ScaledDotProductAttention(nn.Module):
     def get_new_rep(self, tnsr):
 
         def get_unfolded(t):
+
             t = t.reshape(l, h * d, b)
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
             t = t.unfold(-1, self.n_ext_info, 1)
@@ -70,7 +71,7 @@ class ScaledDotProductAttention(nn.Module):
 
     def forward(self, Q, K, V, attn_mask):
 
-        if self.attn_type == "basic_attn" or not self:
+        if self.attn_type == "basic_attn" or not self.enc_attn:
 
             scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             if attn_mask is not None:
