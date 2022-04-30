@@ -49,19 +49,9 @@ class ScaledDotProductAttention(nn.Module):
         if "extra_info_attn" in self.attn_type:
 
             self.num_past_info = math.ceil(math.log2(b_size))
-            padding_s = int((kernel_s - 1) / 2)
-            padding_b = int((kernel_b - 1) / 2)
-            stride_s = 1
-            stride_b = 1 if kernel_b == 1 else int(kernel_b / 2)
-            n_ext_info = math.floor(((n_ext_info + 2 * padding_b - kernel_b) / stride_b) + 1)
             kernel_max_pool_b = math.ceil(n_ext_info / self.num_past_info)
             padding_max_pooling_b = int((kernel_max_pool_b - 1) / 2)
 
-            self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
-                                    out_channels=d_k*n_heads,
-                                    kernel_size=(kernel_s, kernel_b),
-                                    stride=(stride_s, stride_b),
-                                    padding=(padding_s, padding_b)).to(device)
             self.max_pool2d = nn.MaxPool2d(kernel_size=(1, kernel_max_pool_b), padding=(0, padding_max_pooling_b))
             self.max_pooling = nn.MaxPool2d(kernel_size=(self.num_past_info, 1))
 
@@ -79,13 +69,10 @@ class ScaledDotProductAttention(nn.Module):
         q = get_unfolded(tnsr)
         k = get_unfolded(tnsr)
         v = get_unfolded(tnsr)
-        q = self.conv2d(q.reshape(b, h * d, l, self.n_ext_info))
-        k = self.conv2d(k.reshape(b, h * d, l, self.n_ext_info))
-        v = self.conv2d(v.reshape(b, h * d, l, self.n_ext_info))
 
-        q = self.max_pool2d(q).reshape(b, h, l, -1, d)
-        k = self.max_pool2d(k).reshape(b, h, l, -1, d)
-        v = self.max_pool2d(v).reshape(b, h, l, -1, d)
+        q = self.max_pool2d(q.reshape(b, h * d, l, self.n_ext_info)).reshape(b, h, l, -1, d)
+        k = self.max_pool2d(k.reshape(b, h * d, l, self.n_ext_info)).reshape(b, h, l, -1, d)
+        v = self.max_pool2d(v.reshape(b, h * d, l, self.n_ext_info)).reshape(b, h, l, -1, d)
 
         score = torch.einsum('bhqnd,bhqmd->bhqnm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
