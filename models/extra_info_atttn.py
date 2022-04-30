@@ -33,23 +33,6 @@ class PositionalEncoding(nn.Module):
         return X
 
 
-class PositionalEncoding_2d(nn.Module):
-    """Positional encoding."""
-    def __init__(self, d_hid, device, max_len=500):
-        super(PositionalEncoding_2d, self).__init__()
-        # Create a long enough `P`
-        self.P = torch.zeros((1, 1, max_len, d_hid)).to(device)
-        X = torch.arange(max_len, dtype=torch.float32).reshape(
-            -1, 1) / torch.pow(10000, torch.arange(
-            0, d_hid, 2, dtype=torch.float32) / d_hid)
-        self.P[:, :, :, 1::2] = torch.sin(X)
-        self.P[:, :, :, 1::2] = torch.cos(X)
-
-    def forward(self, X):
-        X = X + self.P[:, :, :X.shape[2], :]
-        return X
-
-
 class ScaledDotProductAttention(nn.Module):
 
     def __init__(self, d_k, device, n_heads, l_k, b_size, n_ext_info,
@@ -63,77 +46,36 @@ class ScaledDotProductAttention(nn.Module):
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
 
-        self.pos_emb = PositionalEncoding(
-            d_hid=n_heads*d_k,
-            device=device)
         if "extra_info_attn" in self.attn_type:
-
-            self.num_past_info = math.ceil(math.log2(b_size))
-            padding_s = int((kernel_s - 1) / 2)
-            padding_b = int((kernel_b - 1) / 2)
-            stride_s = 1 if kernel_s == 1 else int(kernel_s / 2)
-            stride_b = 1 if kernel_b == 1 else int(kernel_b / 2)
-            l_k = math.floor(((l_k + 2 * padding_s - (kernel_s - 1) - 1) / stride_s) + 1)
-            n_ext_info = math.floor(((n_ext_info + 2 * padding_b - kernel_b) / stride_b) + 1)
-            kernel_max_pool_s = math.ceil(l_k / self.num_past_info)
-            kernel_max_pool_b = math.ceil(n_ext_info / self.num_past_info)
-            padding_max_pooling_s = int((kernel_max_pool_s - 1)/2)
-            padding_max_pooling_b = int((kernel_max_pool_b - 1) / 2)
-            self.m = math.floor(((l_k + 2 * padding_max_pooling_s - 1 *
-                                  (kernel_max_pool_s - 1) - 1) / kernel_max_pool_s) + 1)
-            self.n = math.floor(((n_ext_info + 2 * padding_max_pooling_b - 1 *
-                                  (kernel_max_pool_b - 1) - 1) / kernel_max_pool_b) + 1)
-
-            if "2d" in self.attn_type:
-                self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
-                                        out_channels=d_k*n_heads,
-                                        kernel_size=(kernel_s, kernel_b),
-                                        stride=(stride_s, stride_b),
-                                        padding=(padding_s, padding_b)).to(device)
-
-                self.max_pooling = \
-                    nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
-                                 padding=(padding_max_pooling_s, padding_max_pooling_b))
-            else:
-                self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
-                                        out_channels=d_k*n_heads,
-                                        kernel_size=(kernel_s, 1),
-                                        stride=(stride_s, 1),
-                                        padding=(padding_s, 0)).to(device)
-                self.max_pooling = \
-                    nn.MaxPool2d(kernel_size=(kernel_max_pool_s, kernel_max_pool_b),
-                                 padding=(padding_max_pooling_s, padding_max_pooling_b))
-
-            self.linear_k = nn.Parameter(torch.randn(self.n*self.m).to(device), requires_grad=True)
+            self.WQ = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False)
+            self.WK = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False)
+            self.WV = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False)
 
     def get_new_rep(self, tnsr):
 
-        b, h, l_k, d = tnsr.shape
-        tnsr = tnsr.reshape(l_k, h * d, b)
-        tnsr = F.pad(tnsr, pad=(self.n_ext_info - 1, 0, 0, 0))
-        tnsr = tnsr.unfold(-1, self.n_ext_info, 1)
-        tnsr = tnsr.reshape(b, h * d, l_k, self.n_ext_info)
-        tnsr = self.conv2d(tnsr)
-        tnsr = self.max_pooling(tnsr)
-        tnsr = tnsr.view(b, h, self.n*self.m, d)
-        return tnsr
+        def get_unfolded(t):
+            t = t.reshape(l, h * d, b)
+            t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
+            t = t.unfold(-1, self.n_ext_info, 1)
+            t = t.reshape(b, h, l, -1, d)
+            return t
 
-    def skew(self, QEr):
-        # QEr.shape = (batch_size, num_heads, seq_len, seq_len)
-        padded = F.pad(QEr, (1, 0))
-        # padded.shape = (batch_size, num_heads, seq_len, 1 + seq_len)
-        batch_size, num_heads, num_rows, num_cols = padded.shape
-        reshaped = padded.reshape(batch_size, num_heads, num_cols, num_rows)
-        # reshaped.size = (batch_size, num_heads, 1 + seq_len, seq_len)
-        Srel = reshaped[:, :, 1:, :]
-        # Srel.shape = (batch_size, num_heads, seq_len, seq_len)
-        return Srel
+        b, h, l, d = tnsr.shape
+        q = self.WQ(tnsr.reshape(b, l, h*d)).reshape(b, h, l, d)
+        k = self.WK(tnsr.reshape(b, l, h*d)).reshape(b, h, l, d)
+        v = self.WV(tnsr.reshape(b, l, h*d)).reshape(b, h, l, d)
+        q = get_unfolded(q)
+        k = get_unfolded(k)
+        v = get_unfolded(v)
+
+        score = torch.einsum('bhqnd, bhknd-> bhqkn', q, k) / np.sqrt(self.d_k)
+        attn = self.softmax(score)
+        context = torch.einsum('bhqkn, bhknd -> bhqd', attn, v)
+        return context
 
     def forward(self, Q, K, V, attn_mask):
 
         if self.attn_type == "basic_attn" or not self.enc_attn:
-
-            b, h, _, d = Q.shape
 
             scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             if attn_mask is not None:
@@ -145,18 +87,9 @@ class ScaledDotProductAttention(nn.Module):
 
         elif "extra_info_attn" in self.attn_type:
 
-            b, h, _, d = Q.shape
-            K_e = self.get_new_rep(K)
-            V_e = self.get_new_rep(V)
-            n = K_e.shape[2]
-            linear_k = torch.sigmoid(self.linear_k)
-            K_l = torch.einsum('bhnd,n->bhnd', K_e, linear_k) + \
-                  torch.einsum('bhnd,n->bhnd', K[:, :, -n:, :].clone(), 1 - linear_k)
-            V_l = torch.einsum('bhnd,n->bhnd', V_e, linear_k) + \
-                  torch.einsum('bhnd,n->bhnd', V[:, :, -n:, :].clone(), 1 - linear_k)
-            K[:, :, -n:, :] = K_l
-            V[:, :, -n:, :] = V_l
-            scores = (torch.einsum('bhqd,bhkd-> bhqk', Q, K)) / np.sqrt(self.d_k)
+            K = self.get_new_rep(K)
+            V = self.get_new_rep(V)
+            scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 

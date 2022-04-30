@@ -30,7 +30,7 @@ parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_steps", type=int, default=216)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='extra_info_attn')
+parser.add_argument("--attn_type", type=str, default='extra_info_attn_2d')
 args = parser.parse_args()
 
 n_distinct_trial = 1
