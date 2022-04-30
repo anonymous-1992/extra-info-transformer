@@ -47,9 +47,9 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
 
         if "extra_info_attn" in self.attn_type:
-            self.WQ = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False)
-            self.WK = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False)
-            self.WV = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False)
+            self.WQ = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False).to(device)
+            self.WK = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False).to(device)
+            self.WV = nn.Linear(d_k * n_heads, d_k * n_heads, bias=False).to(device)
 
     def get_new_rep(self, tnsr):
 
