@@ -47,7 +47,7 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
 
         if "extra_info_attn" in self.attn_type:
-            self.max_pooling = nn.MaxPool2d(kernel_size=(self.n_ext_info, 1))
+            self.avg_pooling = nn.AvgPool2d(kernel_size=(self.n_ext_info, 1))
 
     def get_new_rep(self, tnsr):
 
@@ -64,10 +64,10 @@ class ScaledDotProductAttention(nn.Module):
         k = get_unfolded(tnsr)
         v = get_unfolded(tnsr)
 
-        score = torch.einsum('bhqnd, bhqmd-> bhqnm', q, k) / np.sqrt(self.d_k)
+        score = torch.einsum('bhqnd,bhqmd->bhqnm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
-        context = torch.einsum('bhknn, bhknd -> bhknd', attn, v)
-        context = self.max_pooling(context.reshape(b, h*d, -1, l)).reshape(b, h, l, d)
+        context = torch.einsum('bhknn,bhknd->bhknd', attn, v)
+        context = self.avg_pooling(context.reshape(b, h*d, -1, l)).reshape(b, h, l, d)
         return context
 
     def forward(self, Q, K, V, attn_mask):
