@@ -48,12 +48,12 @@ class ScaledDotProductAttention(nn.Module):
 
         if "extra_info_attn" in self.attn_type:
 
-            padding_s = int((kernel_s - 1) / 2)
+            '''padding_s = int((kernel_s - 1) / 2)
             self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
                                     out_channels=d_k*n_heads,
                                     kernel_size=(kernel_s, 1),
                                     stride=(1, 1),
-                                    padding=(padding_s, 1)).to(device)
+                                    padding=(padding_s, 1)).to(device)'''
 
     def get_new_rep(self, tnsr):
 
@@ -61,8 +61,8 @@ class ScaledDotProductAttention(nn.Module):
 
             t = t.reshape(l, h * d, b)
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
-            t = t.unfold(-1, self.n_ext_info, 1)
-            t = self.conv2d(t.reshape(b, h*d, l, -1)).reshape(b, h, l, -1, d)
+            t = t.unfold(-1, self.n_ext_info, 1).reshape(b, h, l, -1, d)
+            #t = self.conv2d(t.reshape(b, h*d, l, -1)).reshape(b, h, l, -1, d)
             return t
 
         b, h, l, d = tnsr.shape
