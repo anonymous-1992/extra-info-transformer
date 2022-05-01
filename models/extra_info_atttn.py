@@ -48,12 +48,7 @@ class ScaledDotProductAttention(nn.Module):
 
         if "extra_info_attn" in self.attn_type:
 
-            self.num_past_info = math.ceil(math.log2(b_size))
-            kernel_max_pool_b = math.ceil(n_ext_info / self.num_past_info)
-            padding_max_pooling_b = int((kernel_max_pool_b - 1) / 2)
-
-            self.max_pool2d = nn.MaxPool2d(kernel_size=(1, kernel_max_pool_b), padding=(0, padding_max_pooling_b))
-            self.max_pooling = nn.MaxPool2d(kernel_size=(self.num_past_info, 1))
+            pass
 
     def get_new_rep(self, tnsr):
 
@@ -63,18 +58,16 @@ class ScaledDotProductAttention(nn.Module):
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
             t = t.unfold(-1, self.n_ext_info, 1)
             t = t.reshape(b, h, l, -1, d)
-            t = self.max_pool2d(t.reshape(b, h * d, l, self.n_ext_info)).reshape(b, h, l, -1, d)
             return t
 
         b, h, l, d = tnsr.shape
-        q = get_unfolded(tnsr)
+        q = tnsr
         k = get_unfolded(tnsr)
         v = get_unfolded(tnsr)
 
-        score = torch.einsum('bhqnd,bhqmd->bhqnm', q, k) / np.sqrt(self.d_k)
+        score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
-        context = torch.einsum('bhknn,bhknd->bhknd', attn, v)
-        context = self.max_pooling(context.reshape(b, h*d, -1, l)).reshape(b, h, l, d)
+        context = torch.einsum('bhkn,bhknd->bhkd', attn, v)
         return context
 
     def forward(self, Q, K, V, attn_mask):
