@@ -48,7 +48,12 @@ class ScaledDotProductAttention(nn.Module):
 
         if "extra_info_attn" in self.attn_type:
 
-            pass
+            padding_s = int((kernel_s - 1) / 2)
+            self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
+                                    out_channels=d_k*n_heads,
+                                    kernel_size=(kernel_s, 1),
+                                    stride=(1, 1),
+                                    padding=(padding_s, 1)).to(device)
 
     def get_new_rep(self, tnsr):
 
@@ -57,7 +62,7 @@ class ScaledDotProductAttention(nn.Module):
             t = t.reshape(l, h * d, b)
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
             t = t.unfold(-1, self.n_ext_info, 1)
-            t = t.reshape(b, h, l, -1, d)
+            t = self.conv2d(t.reshape(b, h*d, l, -1)).reshape(b, h, l, -1, d)
             return t
 
         b, h, l, d = tnsr.shape
@@ -165,7 +170,8 @@ class EncoderLayer(nn.Module):
             attn_type=attn_type,
             n_ext_info=n_ext_info,
             kernel_s=kernel_s,
-            kernel_b=kernel_b)
+            kernel_b=kernel_b,
+            enc_attn=True)
         self.pos_ffn = PoswiseFeedForwardNet(
             d_model=d_model, d_ff=d_ff)
         self.layer_norm = nn.LayerNorm(d_model, elementwise_affine=False)
@@ -231,12 +237,12 @@ class DecoderLayer(nn.Module):
             d_model=d_model, d_k=d_k,
             d_v=d_v, n_heads=n_heads, device=device,
             attn_type=attn_type, n_ext_info=n_ext_info,
-            kernel_s=kernel_s, kernel_b=kernel_b)
+            kernel_s=kernel_s, kernel_b=kernel_b, enc_attn=True)
         self.dec_enc_attn = MultiHeadAttention(
             d_model=d_model, d_k=d_k,
             d_v=d_v, n_heads=n_heads, device=device,
             attn_type=attn_type, n_ext_info=n_ext_info,
-            kernel_s=kernel_s, kernel_b=kernel_b, enc_attn=True)
+            kernel_s=kernel_s, kernel_b=kernel_b)
         self.pos_ffn = PoswiseFeedForwardNet(
             d_model=d_model, d_ff=d_ff)
         self.layer_norm = nn.LayerNorm(d_model, elementwise_affine=False)
