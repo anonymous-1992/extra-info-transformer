@@ -63,16 +63,13 @@ class ScaledDotProductAttention(nn.Module):
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
             t = t.unfold(-1, self.n_ext_info, 1)
             t = t.reshape(b, h, l, -1, d)
+            t = self.max_pool2d(t.reshape(b, h * d, l, self.n_ext_info)).reshape(b, h, l, -1, d)
             return t
 
         b, h, l, d = tnsr.shape
         q = get_unfolded(tnsr)
         k = get_unfolded(tnsr)
         v = get_unfolded(tnsr)
-
-        q = self.max_pool2d(q.reshape(b, h * d, l, self.n_ext_info)).reshape(b, h, l, -1, d)
-        k = self.max_pool2d(k.reshape(b, h * d, l, self.n_ext_info)).reshape(b, h, l, -1, d)
-        v = self.max_pool2d(v.reshape(b, h * d, l, self.n_ext_info)).reshape(b, h, l, -1, d)
 
         score = torch.einsum('bhqnd,bhqmd->bhqnm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
