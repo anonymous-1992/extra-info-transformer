@@ -129,7 +129,7 @@ def objective(trial):
     global n_distinct_trial
     d_model = trial.suggest_categorical("d_model", [32, 16])
 
-    if [d_model] in param_history or n_distinct_trial > 5:
+    if [d_model] in param_history or n_distinct_trial > 4:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
