@@ -152,7 +152,7 @@ def objective(trial):
         n_ext_info = 0
         kernel_s = 1
         kernel_b = 1
-    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial > 5:
+    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial > 4:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
