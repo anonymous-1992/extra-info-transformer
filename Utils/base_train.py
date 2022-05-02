@@ -23,8 +23,8 @@ import pandas as pd
 import math
 import random
 
-np.random.seed(1234)
-random.seed(1234)
+np.random.seed(21)
+random.seed(21)
 
 InputTypes = base.InputTypes
 
