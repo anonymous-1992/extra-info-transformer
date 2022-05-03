@@ -97,11 +97,10 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps, num_encoder_st
                 len(valid_sampling_locations), len(valid_sampling_locations), replace=False)
         ]
 
-    ranges = [ranges[i:i+batch_size*20] for i in range(0, len(ranges), batch_size*20)]
+    ranges = [ranges[i:i+batch_size*10] for i in range(0, len(ranges), batch_size*10)]
     for ls in ranges:
         ls.sort(key=takeSecond)
     ranges = list(chain.from_iterable(ranges))
-
     id_col = utils.get_single_col_by_input_type(InputTypes.ID, column_definition)
     time_col = utils.get_single_col_by_input_type(InputTypes.TIME, column_definition)
     target_col = utils.get_single_col_by_input_type(InputTypes.TARGET, column_definition)
