@@ -97,7 +97,7 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps, num_encoder_st
                 len(valid_sampling_locations), len(valid_sampling_locations), replace=False)
         ]
 
-    ranges = [ranges[i:i+batch_size*5] for i in range(0, len(ranges), batch_size*5)]
+    ranges = [ranges[i:i+batch_size*10] for i in range(0, len(ranges), batch_size*10)]
     for ls in ranges:
         ls.sort(key=takeSecond)
     ranges = list(chain.from_iterable(ranges))
