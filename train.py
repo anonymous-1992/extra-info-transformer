@@ -30,7 +30,7 @@ parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_steps", type=int, default=216)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='basic_attn')
+parser.add_argument("--attn_type", type=str, default='extra_info_attn')
 args = parser.parse_args()
 
 n_distinct_trial = 1
@@ -58,7 +58,7 @@ test_sample = batch_sampled_data(test, valid_max, batch_size, args.total_steps,
 
 
 log_b_size = math.ceil(math.log2(batch_size))
-l_b_size = math.ceil(math.log2(batch_size))
+log_s_size = math.ceil(math.log2(params['num_encoder_steps']))
 param_history = list()
 
 device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
@@ -147,7 +147,7 @@ def objective(trial):
     if "extra_info_attn" in args.attn_type:
         n_ext_info = trial.suggest_categorical("n_ext_info", [log_b_size*6, log_b_size*4, log_b_size])
         kernel_b = 1
-        kernel_s = trial.suggest_categorical("kernel_s", [1, 3, 6, 9])
+        kernel_s = 1
     else:
         n_ext_info = 0
         kernel_s = 1

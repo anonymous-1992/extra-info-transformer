@@ -45,41 +45,44 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
-        self.kernel_s = kernel_s
-
-        if "extra_info_attn" in self.attn_type:
-
-            '''padding_s = int((kernel_s - 1) / 2)
-            self.conv2d = nn.Conv2d(in_channels=d_k*n_heads,
-                                    out_channels=d_k*n_heads,
-                                    kernel_size=(kernel_s, 1),
-                                    stride=(1, 1),
-                                    padding=(padding_s, 1)).to(device)'''
-            #self.proj = nn.Linear(self.kernel_s, 1).to(device)
-            self.max_pooling = nn.MaxPool2d(kernel_size=(1, kernel_s))
+        self.kernel_s = math.ceil(math.log2(l_k))
 
     def get_new_rep(self, tnsr):
 
-        def get_unfolded(t):
+        def get_unfolded_0(t):
 
-            t = t.reshape(b, h*d, l)
+            t = t.reshape(b, h * d, l)
             t = F.pad(t, pad=(self.kernel_s - 1, 0, 0, 0))
             t = t.unfold(-1, self.kernel_s, 1)
-            t = self.max_pooling(t)
+            t = t.reshape(b, h, l, -1, d)
+            return t
+
+        def get_unfolded_1(t):
+
             t = t.reshape(l, h * d, b)
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
             t = t.unfold(-1, self.n_ext_info, 1).reshape(b, h, l, -1, d)
-            #t = self.conv2d(t.reshape(b, h*d, l, -1)).reshape(b, h, l, -1, d)
             return t
+
+        def get_attn_score(q, k, v):
+
+            score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
+            attn = self.softmax(score)
+            context = torch.einsum('bhkn,bhknd->bhkd', attn, v)
+            return context
 
         b, h, l, d = tnsr.shape
         q = tnsr
-        k = get_unfolded(tnsr)
-        v = get_unfolded(tnsr)
+        k = get_unfolded_0(tnsr)
+        v = get_unfolded_0(tnsr)
 
-        score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
-        attn = self.softmax(score)
-        context = torch.einsum('bhkn,bhknd->bhkd', attn, v)
+        context = get_attn_score(q, k, v)
+
+        k = get_unfolded_1(context)
+        v = get_unfolded_1(context)
+
+        context = get_attn_score(q, k, v)
+
         return context
 
     def forward(self, Q, K, V, attn_mask):
