@@ -47,6 +47,10 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
         self.kernel_s = kernel_s
         self.kernel_b = kernel_b
+        self.conv3d = nn.Conv3d(in_channels=d_k*n_heads,
+                                out_channels=d_k*n_heads,
+                                kernel_size=(1, kernel_s, kernel_b),
+                                stride=(1, kernel_s, kernel_b))
 
     def get_new_rep(self, tnsr):
 
@@ -57,24 +61,13 @@ class ScaledDotProductAttention(nn.Module):
             t = t.unfold(-1, self.kernel_s, 1)
             t = t.reshape(l, -1, h * d, b)
             t = F.pad(t, pad=(self.kernel_b - 1, 0, 0, 0))
-            t = t.unfold(-1, self.kernel_b, 1).reshape(b, h, l, self.kernel_s, -1, d)
+            t = t.unfold(-1, self.kernel_b, 1).reshape(b, h*d, l, self.kernel_s, -1)
             return t
 
-        def get_attn_score(q, k, v):
-
-            score = torch.einsum('bhqd,bhqmnd->bhqmn', q, k) / np.sqrt(self.d_k)
-            attn = self.softmax(score)
-            context = torch.einsum('bhkmn,bhkmnd->bhkd', attn, v)
-            return context
-
         b, h, l, d = tnsr.shape
-        q = tnsr
         k = get_unfolded(tnsr)
-        v = get_unfolded(tnsr)
-
-        context = get_attn_score(q, k, v)
-
-        return context
+        k = self.conv3d(k).reshape(b, h, l, d)
+        return k
 
     def forward(self, Q, K, V, attn_mask):
 
