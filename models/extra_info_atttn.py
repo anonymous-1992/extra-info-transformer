@@ -50,7 +50,7 @@ class ScaledDotProductAttention(nn.Module):
         self.conv3d = nn.Conv3d(in_channels=d_k*n_heads,
                                 out_channels=d_k*n_heads,
                                 kernel_size=(1, kernel_s, kernel_b),
-                                stride=(1, kernel_s, kernel_b))
+                                stride=(1, kernel_s, kernel_b)).to(device)
 
     def get_new_rep(self, tnsr):
 
