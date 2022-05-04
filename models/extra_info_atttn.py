@@ -49,9 +49,10 @@ class ScaledDotProductAttention(nn.Module):
         self.kernel_b = kernel_b
         self.conv3d = nn.Conv3d(in_channels=d_k*n_heads,
                                 out_channels=d_k*n_heads,
-                                kernel_size=(1, kernel_s, kernel_b),
-                                stride=(1, kernel_s, kernel_b)).to(device)
-        self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 2, 1), stride=(1, 2, 1))
+                                kernel_size=(1, kernel_s, kernel_b)).to(device)
+        self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 2*kernel_s, kernel_b),
+                                       stride=(1, 2*kernel_s, kernel_b),
+                                       padding=(0, int(2*kernel_s / 2), int(kernel_b/2)))
 
     def get_new_rep(self, tnsr):
 
