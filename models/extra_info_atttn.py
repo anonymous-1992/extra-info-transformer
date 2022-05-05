@@ -56,25 +56,36 @@ class ScaledDotProductAttention(nn.Module):
         padding_s_m = int(kernel_s_m/2)
         self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 2*kernel_s_m, self.ext_info),
                                        padding=(0, padding_s_m, 1))
+        kernel = int(l_k / kernel_s)
+        padding = int(kernel / 2)
+        self.max_pool2d = nn.MaxPool2d(kernel_size=(1, kernel), padding=(0, padding))
+        kernel = int(b_size / kernel_b)
+        padding = int(kernel / 2)
+        self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 1, kernel), padding=(0, 0, padding))
 
     def get_new_rep(self, tnsr):
 
         def get_unfolded(t):
 
             t = t.reshape(b, h * d, l)
-            ext_info = self.ext_info
-            t = F.pad(t, pad=(ext_info - 1, 0, 0, 0))
-            t = F.pad(t, pad=(0, ext_info, 0, 0))
-            t = t.unfold(-1, 2*ext_info, 1)
-            t = t.reshape(l, -1, h * d, b)
-            t = F.pad(t, pad=(ext_info - 1, 0, 0, 0))
-            t = t.unfold(-1, ext_info, 1).reshape(b, h*d, l, ext_info*2, -1)
+            t = F.pad(t, pad=(l - 1, 0, 0, 0))
+            t = t.unfold(-1, l, 1)
+            t = self.max_pool2d(t)
+            t = t.reshape(l, -1, h*d, b)
+            t = F.pad(t, pad=(b - 1, 0, 0, 0))
+            t = t.unfold(-1, b, 1)
+            t = self.max_pool3d(t).reshape(b, h, l, -1, d)
             return t
 
         b, h, l, d = tnsr.shape
+        q = tnsr
         k = get_unfolded(tnsr)
-        k = self.max_pool3d(self.conv3d(k)).reshape(b, h, l, d)
-        return k
+        v = get_unfolded(tnsr)
+
+        score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
+        attn = self.softmax(score)
+        context = torch.einsum('bhkn,bhknd->bhkd', attn, v)
+        return context
 
     def forward(self, Q, K, V, attn_mask):
 
