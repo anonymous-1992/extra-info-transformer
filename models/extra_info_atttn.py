@@ -95,7 +95,7 @@ class ScaledDotProductAttention(nn.Module):
         elif "extra_info_attn" in self.attn_type:
 
             K = self.get_new_rep(K)
-            V = self.get_new_rep(V)
+            V = self.get_new_rep(K)
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
@@ -132,7 +132,7 @@ class MultiHeadAttention(nn.Module):
         batch_size = Q.shape[0]
         q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        v_s = self.WV(V).view(batch_size, -1, self.n_heads, self.d_v).transpose(1, 2)
+        v_s = self.WV(V).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
         context, attn = ScaledDotProductAttention(d_k=self.d_k,
