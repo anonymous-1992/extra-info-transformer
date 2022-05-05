@@ -47,23 +47,30 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
         self.kernel_s = kernel_s
         self.kernel_b = kernel_b
+        self.ext_info = math.ceil(math.log2(b_size))
         self.conv3d = nn.Conv3d(in_channels=d_k*n_heads,
                                 out_channels=d_k*n_heads,
                                 kernel_size=(1, kernel_s, kernel_b),
                                 stride=(1, kernel_s, kernel_b)).to(device)
-        self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 2, 1), stride=(1, 2, 1))
+        kernel_s_m = int(self.ext_info / kernel_s)
+        kernel_b_m = int(self.ext_info / kernel_b)
+        padding_s_m = int(kernel_s_m/2)
+        padding_b_m = int(kernel_b_m/2)
+        self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 2*kernel_s_m, kernel_b_m),
+                                       padding=(0, padding_s_m, padding_b_m))
 
     def get_new_rep(self, tnsr):
 
         def get_unfolded(t):
 
             t = t.reshape(b, h * d, l)
-            t = F.pad(t, pad=(self.kernel_s - 1, 0, 0, 0))
-            t = F.pad(t, pad=(0, self.kernel_s, 0, 0))
-            t = t.unfold(-1, 2*self.kernel_s, 1)
+            ext_info = self.ext_info
+            t = F.pad(t, pad=(ext_info - 1, 0, 0, 0))
+            t = F.pad(t, pad=(0, ext_info, 0, 0))
+            t = t.unfold(-1, 2*ext_info, 1)
             t = t.reshape(l, -1, h * d, b)
-            t = F.pad(t, pad=(self.kernel_b - 1, 0, 0, 0))
-            t = t.unfold(-1, self.kernel_b, 1).reshape(b, h*d, l, self.kernel_s*2, -1)
+            t = F.pad(t, pad=(ext_info - 1, 0, 0, 0))
+            t = t.unfold(-1, ext_info, 1).reshape(b, h*d, l, ext_info*2, -1)
             return t
 
         b, h, l, d = tnsr.shape
