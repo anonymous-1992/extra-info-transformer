@@ -52,7 +52,8 @@ class ScaledDotProductAttention(nn.Module):
         padding_s = int(kernel_s / 2)
         kernel_b = int(self.n_ext_info / log_b)
         padding_b = int(kernel_b / 2)
-        self.max_pool3d = nn.MaxPool3d(kernel_size=(1, kernel_s, kernel_b), padding=(0, padding_s, padding_b))
+        self.max_pool2d = nn.MaxPool2d(kernel_size=(1, kernel_s), padding=(0, padding_s))
+        self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 1, kernel_b), padding=(0, 0, padding_b))
 
     def get_new_rep(self, tnsr):
 
@@ -62,10 +63,11 @@ class ScaledDotProductAttention(nn.Module):
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
             t = F.pad(t, pad=(0, self.n_ext_info, 0, 0))
             t = t.unfold(-1, self.n_ext_info*2, 1)
+            t = self.max_pool2d(t)
             t = t.reshape(l, -1, h * d, b)
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
             t = t.unfold(-1, self.n_ext_info, 1)
-            t = t.reshape(b, d*h, l, self.n_ext_info*2, self.n_ext_info)
+            t = t.reshape(b, d*h, l, -1, self.n_ext_info)
             t = self.max_pool3d(t).reshape(b, h, l, -1, d)
             return t
 
