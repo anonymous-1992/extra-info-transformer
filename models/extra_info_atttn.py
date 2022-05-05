@@ -95,7 +95,7 @@ class ScaledDotProductAttention(nn.Module):
         elif "extra_info_attn" in self.attn_type:
 
             K = self.get_new_rep(K)
-            V = self.get_new_rep(K)
+            V = self.get_new_rep(V)
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
