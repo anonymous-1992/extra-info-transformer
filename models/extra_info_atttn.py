@@ -48,7 +48,7 @@ class ScaledDotProductAttention(nn.Module):
         self.kernel_s = kernel_s
         self.kernel_b = kernel_b
         log_b = math.ceil(math.log2(b_size))
-        kernel_s = 2*int(self.n_ext_info / log_b)
+        kernel_s = int(self.n_ext_info / log_b)
         padding_s = int(kernel_s / 2)
         kernel_b = int(self.n_ext_info / log_b)
         padding_b = int(kernel_b / 2)
@@ -61,8 +61,7 @@ class ScaledDotProductAttention(nn.Module):
 
             t = t.reshape(b, h * d, l)
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
-            t = F.pad(t, pad=(0, self.n_ext_info, 0, 0))
-            t = t.unfold(-1, self.n_ext_info*2, 1)
+            t = t.unfold(-1, self.n_ext_info, 1)
             t = self.max_pool2d(t)
             t = t.reshape(l, -1, h * d, b)
             t = F.pad(t, pad=(self.n_ext_info - 1, 0, 0, 0))
