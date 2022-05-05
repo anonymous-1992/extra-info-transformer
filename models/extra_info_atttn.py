@@ -56,10 +56,10 @@ class ScaledDotProductAttention(nn.Module):
         padding_s_m = int(kernel_s_m/2)
         self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 2*kernel_s_m, self.ext_info),
                                        padding=(0, padding_s_m, 1))
-        kernel = int(l_k / kernel_s)
+        kernel = int(l_k / 2*kernel_s)
         padding = int(kernel / 2)
         self.max_pool2d = nn.MaxPool2d(kernel_size=(1, kernel), padding=(0, padding))
-        kernel = int(b_size / kernel_b)
+        kernel = int(b_size / 2*kernel_b)
         padding = int(kernel / 2)
         self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 1, kernel), padding=(0, 0, padding))
 
@@ -68,12 +68,14 @@ class ScaledDotProductAttention(nn.Module):
         def get_unfolded(t):
 
             t = t.reshape(b, h * d, l)
-            t = F.pad(t, pad=(l - 1, 0, 0, 0))
-            t = t.unfold(-1, l, 1)
+            unf = int(l / 2)
+            t = F.pad(t, pad=(unf - 1, 0, 0, 0))
+            t = t.unfold(-1, unf, 1)
             t = self.max_pool2d(t)
             t = t.reshape(l, -1, h*d, b)
-            t = F.pad(t, pad=(b - 1, 0, 0, 0))
-            t = t.unfold(-1, b, 1)
+            unf = int(b / 2)
+            t = F.pad(t, pad=(unf - 1, 0, 0, 0))
+            t = t.unfold(-1, unf, 1)
             t = self.max_pool3d(t).reshape(b, h, l, -1, d)
             return t
 
