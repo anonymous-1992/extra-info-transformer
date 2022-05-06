@@ -47,10 +47,10 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
         self.kernel_s = kernel_s
         self.kernel_b = kernel_b
-        log_b = math.ceil(math.log2(b_size))
-        kernel_s = int(self.n_ext_info / log_b)
+        log_b = min(math.ceil(math.log2(b_size)), math.ceil(math.log2(l_k)))
+        kernel_s = int(2 * self.n_ext_info / log_b)
         padding_s = int(kernel_s / 2)
-        kernel_b = int(self.n_ext_info / log_b)
+        kernel_b = int(2 * self.n_ext_info / log_b)
         padding_b = int(kernel_b / 2)
         self.max_pool2d = nn.MaxPool2d(kernel_size=(1, kernel_s), padding=(0, padding_s))
         self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 1, kernel_b), padding=(0, 0, padding_b))
