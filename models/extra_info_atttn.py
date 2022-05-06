@@ -57,11 +57,10 @@ class ScaledDotProductAttention(nn.Module):
 
     def get_new_rep(self, tnsr):
 
-        def get_unfolded(t):
+        def get_unfolded(t, kernel):
 
-            t = t.reshape(l, h * d, b)
-            t = F.pad(t, pad=(self.kernel_b - 1, 0, 0, 0))
-            t = t.unfold(-1, self.kernel_b, 1)
+            t = F.pad(t, pad=(kernel - 1, 0, 0, 0))
+            t = t.unfold(-1, kernel, 1)
             t = self.max_pool2d(t)
             t = t.reshape(b, h, l, -1, d)
             '''t = F.pad(t, pad=(self.kernel_s - 1, 0, 0, 0))
@@ -72,15 +71,18 @@ class ScaledDotProductAttention(nn.Module):
 
         b, h, l, d = tnsr.shape
         q = tnsr
-        k = get_unfolded(tnsr)
+        k = get_unfolded(tnsr.reshape(l, h*d, b), self.kernel_b)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
         context = torch.einsum('bhkn,bhknd->bhkd', attn, k)
-        k = context
-        score = torch.einsum('bhqd,bhkd->bhqk', k, k) / np.sqrt(self.d_k)
+        q = context
+        k = get_unfolded(context.reshape(b, h*d, l), self.kernel_s)
+
+        score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
-        context = torch.einsum('bhqk,bhkd->bhkd', attn, k) + tnsr
+        context = torch.einsum('bhkn,bhknd->bhkd', attn, k) + tnsr
+
         return context
 
     def forward(self, Q, K, V, attn_mask):
