@@ -47,37 +47,31 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
         self.kernel_s = kernel_s
         self.kernel_b = kernel_b
-        log_b = min(math.ceil(math.log2(b_size)), math.ceil(math.log2(l_k)))
-        #kernel_s = int(2 * self.kernel_b / log_b)
-        #padding_s = int(kernel_s / 2)
-        kernel_b = int(self.kernel_b / log_b)
-        padding_b = int(kernel_b / 2)
-        self.max_pool2d = nn.MaxPool2d(kernel_size=(1, kernel_b), padding=(0, padding_b))
-        #self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 1, kernel_b), padding=(0, 0, padding_b))
 
     def get_new_rep(self, tnsr):
 
-        def get_unfolded(t, kernel):
+        def get_unfolded(t, kernel, inf):
 
+            k = int(kernel / inf)
+            p = int(k / 2)
+            max_pool2d = nn.MaxPool2d(kernel_size=(1, k), padding=(0, p))
             t = F.pad(t, pad=(kernel - 1, 0, 0, 0))
             t = t.unfold(-1, kernel, 1)
-            t = self.max_pool2d(t)
+            t = max_pool2d(t)
             t = t.reshape(b, h, l, -1, d)
-            '''t = F.pad(t, pad=(self.kernel_s - 1, 0, 0, 0))
-            t = t.unfold(-1, self.kernel_s, 1)
-            t = t.reshape(b, d*h, l, -1, self.kernel_s)
-            t = self.max_pool3d(t).reshape(b, h, l, -1, d)'''
             return t
 
         b, h, l, d = tnsr.shape
         q = tnsr
-        k = get_unfolded(tnsr.reshape(l, h*d, b), self.kernel_b)
+        log_b = math.ceil(math.log2(b))
+        k = get_unfolded(tnsr.reshape(l, h*d, b), self.kernel_b, log_b)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
         context = torch.einsum('bhkn,bhknd->bhkd', attn, k)
         q = context
-        k = get_unfolded(context.reshape(b, h*d, l), self.kernel_s)
+        log_l = math.ceil(math.log2(l))
+        k = get_unfolded(context.reshape(b, h*d, l), self.kernel_s, log_l)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
