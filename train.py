@@ -148,7 +148,7 @@ def objective(trial):
 
         n_ext_info = 1
         kernel_b = trial.suggest_categorical("kernel_b", [log_s_size*4, log_b_size*2])
-        kernel_s = trial.suggest_categorical("kernel_s", [log_b_size*4, log_b_size*2])
+        kernel_s = 1
     else:
         n_ext_info = 0
         kernel_s = 1

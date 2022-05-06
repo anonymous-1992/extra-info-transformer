@@ -48,26 +48,26 @@ class ScaledDotProductAttention(nn.Module):
         self.kernel_s = kernel_s
         self.kernel_b = kernel_b
         log_b = min(math.ceil(math.log2(b_size)), math.ceil(math.log2(l_k)))
-        kernel_s = int(2 * self.kernel_b / log_b)
-        padding_s = int(kernel_s / 2)
-        kernel_b = int(2 * self.kernel_s / log_b)
+        #kernel_s = int(2 * self.kernel_b / log_b)
+        #padding_s = int(kernel_s / 2)
+        kernel_b = int(self.kernel_b / log_b)
         padding_b = int(kernel_b / 2)
-        self.max_pool2d = nn.MaxPool2d(kernel_size=(1, kernel_s), padding=(0, padding_s))
-        self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 1, kernel_b), padding=(0, 0, padding_b))
+        self.max_pool2d = nn.MaxPool2d(kernel_size=(1, kernel_b), padding=(0, padding_b))
+        #self.max_pool3d = nn.MaxPool3d(kernel_size=(1, 1, kernel_b), padding=(0, 0, padding_b))
 
     def get_new_rep(self, tnsr):
 
         def get_unfolded(t):
 
-            t = t.reshape(b, h * d, l)
+            t = t.reshape(l, h * d, b)
             t = F.pad(t, pad=(self.kernel_b - 1, 0, 0, 0))
             t = t.unfold(-1, self.kernel_b, 1)
             t = self.max_pool2d(t)
-            t = t.reshape(l, -1, h * d, b)
-            t = F.pad(t, pad=(self.kernel_s - 1, 0, 0, 0))
+            t = t.reshape(b, h, l, -1, d)
+            '''t = F.pad(t, pad=(self.kernel_s - 1, 0, 0, 0))
             t = t.unfold(-1, self.kernel_s, 1)
             t = t.reshape(b, d*h, l, -1, self.kernel_s)
-            t = self.max_pool3d(t).reshape(b, h, l, -1, d)
+            t = self.max_pool3d(t).reshape(b, h, l, -1, d)'''
             return t
 
         b, h, l, d = tnsr.shape
@@ -76,7 +76,11 @@ class ScaledDotProductAttention(nn.Module):
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
-        context = torch.einsum('bhkn,bhknd->bhkd', attn, k) + tnsr
+        context = torch.einsum('bhkn,bhknd->bhkd', attn, k)
+        k = context
+        score = torch.einsum('bhqd,bhkd->bhqk', k, k) / np.sqrt(self.d_k)
+        attn = self.softmax(score)
+        context = torch.einsum('bhqk,bhkd->bhkd', attn, k) + tnsr
         return context
 
     def forward(self, Q, K, V, attn_mask):
