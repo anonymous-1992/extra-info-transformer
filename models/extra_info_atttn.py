@@ -53,13 +53,13 @@ class ScaledDotProductAttention(nn.Module):
         p = int(k / 2)
         self.conv2d_b = nn.Conv2d(
             in_channels=d_k*n_heads, out_channels=d_k*n_heads,
-            kernel_size=(1, k), padding=(0, p), stride=(1, k))
+            kernel_size=(1, k), padding=(0, p), stride=(1, k)).to(device)
         log_b = math.ceil(math.log2(l_k))
         k = int(self.kernel_s / log_b)
         p = int(k / 2)
         self.conv2d_s = nn.Conv2d(
             in_channels=d_k * n_heads, out_channels=d_k * n_heads,
-            kernel_size=(1, k), padding=(0, p), stride=(1, k))
+            kernel_size=(1, k), padding=(0, p), stride=(1, k)).to(device)
 
     def get_new_rep(self, tnsr):
 
