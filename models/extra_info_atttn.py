@@ -48,43 +48,30 @@ class ScaledDotProductAttention(nn.Module):
         self.kernel_s = kernel_s
         self.kernel_b = kernel_b
 
-        log_b = math.ceil(math.log2(b_size))
-        k = int(self.kernel_b / log_b)
-        p = int(k / 2)
-        self.conv2d_b = nn.Conv2d(
-            in_channels=d_k*n_heads, out_channels=d_k*n_heads,
-            kernel_size=(1, k), padding=(0, p), stride=(1, k)).to(device)
-        log_b = math.ceil(math.log2(l_k))
-        k = int(self.kernel_s / log_b)
-        p = int(k / 2)
-        self.conv2d_s = nn.Conv2d(
-            in_channels=d_k * n_heads, out_channels=d_k * n_heads,
-            kernel_size=(1, k), padding=(0, p), stride=(1, k)).to(device)
-
     def get_new_rep(self, tnsr):
 
-        def get_unfolded(t, kernel, tp):
+        def get_unfolded(t, kernel, inf):
 
+            k = int(kernel / inf)
+            p = int(k / 2)
+            max_pool2d = nn.MaxPool2d(kernel_size=(1, k), padding=(0, p))
             t = F.pad(t, pad=(kernel - 1, 0, 0, 0))
             t = t.unfold(-1, kernel, 1)
-            if tp == "b":
-                t = self.conv2d_b(t.reshape(b, h*d, l, -1))
-            else:
-                t = self.conv2d_s(t.reshape(b, h * d, l, -1))
-
+            t = max_pool2d(t)
             t = t.reshape(b, h, l, -1, d)
             return t
 
         b, h, l, d = tnsr.shape
         q = tnsr
-
-        k = get_unfolded(tnsr.reshape(l, h*d, b), self.kernel_b, "b")
+        log_b = math.ceil(math.log2(b))
+        k = get_unfolded(tnsr.reshape(l, h*d, b), self.kernel_b, log_b)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
         context = torch.einsum('bhkn,bhknd->bhkd', attn, k)
 
-        k = get_unfolded(context.reshape(b, h*d, l), self.kernel_s, "s")
+        log_l = math.ceil(math.log2(l))
+        k = get_unfolded(context.reshape(b, h*d, l), self.kernel_s, log_l)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
