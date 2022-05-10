@@ -23,9 +23,6 @@ import pandas as pd
 import math
 import random
 
-np.random.seed(21)
-random.seed(21)
-
 InputTypes = base.InputTypes
 
 
@@ -50,7 +47,8 @@ def batching(batch_size, x_en, x_de, y_t, test_id):
     return X_en, X_de, Y_t, tst_id
 
 
-def batch_sampled_data(data, max_samples, batch_size, time_steps, num_encoder_steps, column_definition):
+def batch_sampled_data(data, max_samples, batch_size, time_steps,
+                       num_encoder_steps, column_definition, seed):
     """Samples segments into a compatible format.
     Args:
       data: Sources data to sample and batch
@@ -58,6 +56,9 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps, num_encoder_st
     Returns:
       Dictionary of batched data with the maximum samples specified.
     """
+
+    np.random.seed(seed)
+    random.seed(seed)
 
     if max_samples < 1:
         raise ValueError(

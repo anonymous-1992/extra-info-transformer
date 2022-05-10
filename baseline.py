@@ -4,8 +4,6 @@ import torch.nn.functional as F
 import numpy as np
 import random
 
-np.random.seed(21)
-random.seed(21)
 
 class Lstnet(nn.Module):
     def __init__(self, hidRNN, hidCNN, hidSkip, CNN_kernel, skip,
@@ -113,7 +111,6 @@ class RNN(nn.Module):
                  rnn_type, device, d_r, seed):
 
         super(RNN, self).__init__()
-        torch.manual_seed(seed)
         self.enc_lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=d_r)
         self.dec_lstm = nn.LSTM(hidden_size, hidden_size, n_layers, dropout=d_r)
         self.n_layers = n_layers
@@ -123,6 +120,9 @@ class RNN(nn.Module):
         self.linear_dec = nn.Linear(tgt_input_size, hidden_size, bias=False)
         self.linear2 = nn.Linear(hidden_size, 1, bias=False)
         self.device = device
+        np.random.seed(seed)
+        random.seed(seed)
+        torch.manual_seed(seed)
 
     def forward(self, x_en, x_de, hidden=None):
 

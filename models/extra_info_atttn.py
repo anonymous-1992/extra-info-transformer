@@ -5,9 +5,6 @@ import torch.nn.functional as F
 import math
 import random
 
-np.random.seed(21)
-random.seed(21)
-
 
 def get_attn_subsequent_mask(seq):
     attn_shape = [seq.size(0), seq.size(1), seq.size(1)]
@@ -332,6 +329,8 @@ class Attn(nn.Module):
                  kernel_s, kernel_b, seed):
         super(Attn, self).__init__()
 
+        np.random.seed(seed)
+        random.seed(seed)
         torch.manual_seed(seed)
         self.encoder = Encoder(
             d_model=d_model, d_ff=d_ff,
