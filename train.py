@@ -48,13 +48,13 @@ params = formatter.get_experiment_params()
 batch_size = 256
 
 train_sample = batch_sampled_data(train_data, train_max, batch_size, args.total_steps,
-                                     params['num_encoder_steps'], params["column_definition"])
+                                     params['num_encoder_steps'], params["column_definition"], args.seed)
 
 valid_sample = batch_sampled_data(valid, valid_max, batch_size, args.total_steps,
-                                     params['num_encoder_steps'], params["column_definition"])
+                                     params['num_encoder_steps'], params["column_definition"], args.seed)
 
 test_sample = batch_sampled_data(test, valid_max, batch_size, args.total_steps,
-                                     params['num_encoder_steps'], params["column_definition"])
+                                     params['num_encoder_steps'], params["column_definition"], args.seed)
 
 
 log_b_size = math.ceil(math.log2(batch_size))
@@ -244,12 +244,10 @@ def evaluate():
     model = best_model
     model.eval()
 
-    sample_data = batch_sampled_data(test, valid_max, batch_size, args.total_steps,
-                                     params['num_encoder_steps'], params["column_definition"])
-    test_en, test_de, test_y, test_id = torch.from_numpy(sample_data['enc_inputs']), \
-                                        torch.from_numpy(sample_data['dec_inputs']), \
-                                        torch.from_numpy(sample_data['outputs']), \
-                                        sample_data['identifier']
+    test_en, test_de, test_y, test_id = torch.from_numpy(test_sample['enc_inputs']), \
+                                        torch.from_numpy(test_sample['dec_inputs']), \
+                                        torch.from_numpy(test_sample['outputs']), \
+                                        test_sample['identifier']
 
     test_en, test_de, test_y, test_id = batching(batch_size, test_en,
                                                  test_de, test_y, test_id)
