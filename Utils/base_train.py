@@ -85,6 +85,7 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
         return elem[1]
 
     if 0 < max_samples < len(valid_sampling_locations):
+
         ranges = [
           valid_sampling_locations[i] for i in np.random.choice(
               len(valid_sampling_locations), max_samples, replace=False)
@@ -98,10 +99,12 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
                 len(valid_sampling_locations), len(valid_sampling_locations), replace=False)
         ]
 
-    ranges = [ranges[i:i+batch_size] for i in range(0, len(ranges), batch_size)]
-    for ls in ranges:
-        ls.sort(key=takeSecond)
+    ranges.sort(key=takeSecond)
+    chunk_size = int(math.log2(batch_size))
+    ranges = [ranges[i:i+chunk_size] for i in range(0, len(ranges), chunk_size)]
+    random.shuffle(ranges)
     ranges = list(chain.from_iterable(ranges))
+
     id_col = utils.get_single_col_by_input_type(InputTypes.ID, column_definition)
     time_col = utils.get_single_col_by_input_type(InputTypes.TIME, column_definition)
     target_col = utils.get_single_col_by_input_type(InputTypes.TARGET, column_definition)
