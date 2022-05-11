@@ -42,41 +42,33 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
-        log_b = math.ceil(math.log2(b_size))
-        log_s = math.ceil(math.log2(l_k))
         self.kernel_s = kernel_s
         self.kernel_b = kernel_b
-        self.w_b = nn.Linear(self.kernel_b, log_b).to(device)
-        self.w_s = nn.Linear(self.kernel_s, log_s).to(device)
 
     def get_new_rep(self, tnsr):
 
-        def get_unfolded(t, kernel, tp):
+        def get_unfolded(t, kernel, inf):
 
-            '''k = int(kernel / inf)
+            k = int(kernel / inf)
             p = int(k / 2)
-            max_pool2d = nn.MaxPool2d(kernel_size=(1, k), padding=(0, p))'''
+            max_pool2d = nn.MaxPool2d(kernel_size=(1, k), padding=(0, p))
             t = F.pad(t, pad=(kernel - 1, 0, 0, 0))
             t = t.unfold(-1, kernel, 1)
-            if tp == "b":
-                t = F.relu(self.w_b(t))
-            else:
-                t = F.relu(self.w_s(t))
-            #t = max_pool2d(t)
+            t = max_pool2d(t)
             t = t.reshape(b, h, l, -1, d)
             return t
 
         b, h, l, d = tnsr.shape
         q = tnsr
-        #log_b = math.ceil(math.log2(b))
-        k = get_unfolded(tnsr.reshape(l, h*d, b), self.kernel_b, "b")
+        log_b = math.ceil(math.log2(b))
+        k = get_unfolded(tnsr.reshape(l, h*d, b), self.kernel_b, log_b)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
         context = torch.einsum('bhkn,bhknd->bhkd', attn, k)
 
-        #log_l = math.ceil(math.log2(l))
-        k = get_unfolded(context.reshape(b, h*d, l), self.kernel_s, "s")
+        log_l = math.ceil(math.log2(l))
+        k = get_unfolded(context.reshape(b, h*d, l), self.kernel_s, log_l)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
