@@ -100,11 +100,11 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
         ]
 
     ranges.sort(key=takeSecond)
-    chunk_size = int(math.log2(batch_size))
+    chunk_size = int(batch_size / math.log2(batch_size))
     ranges = [ranges[i:i+chunk_size] for i in range(0, len(ranges), chunk_size)]
     random.shuffle(ranges)
     ranges = list(chain.from_iterable(ranges))
-    ranges = [ranges[i:i + batch_size] for i in range(0, len(ranges), batch_size)]
+    ranges = [ranges[i:i+batch_size] for i in range(0, len(ranges), batch_size)]
     for ls in ranges:
         ls.sort(key=takeSecond)
     ranges = list(chain.from_iterable(ranges))
