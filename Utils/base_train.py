@@ -92,21 +92,15 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
         ]
 
     else:
-        print('Max samples={} exceeds # available segments={}'.format(
-          max_samples, len(valid_sampling_locations)))
         ranges = [
             valid_sampling_locations[i] for i in np.random.choice(
                 len(valid_sampling_locations), len(valid_sampling_locations), replace=False)
         ]
 
     ranges.sort(key=takeSecond)
-    chunk_size = int(batch_size / math.log2(batch_size))
+    chunk_size = int(math.log2(batch_size))
     ranges = [ranges[i:i+chunk_size] for i in range(0, len(ranges), chunk_size)]
     random.shuffle(ranges)
-    ranges = list(chain.from_iterable(ranges))
-    ranges = [ranges[i:i+batch_size] for i in range(0, len(ranges), batch_size)]
-    for ls in ranges:
-        ls.sort(key=takeSecond)
     ranges = list(chain.from_iterable(ranges))
 
     id_col = utils.get_single_col_by_input_type(InputTypes.ID, column_definition)

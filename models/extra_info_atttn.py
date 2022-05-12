@@ -61,7 +61,7 @@ class ScaledDotProductAttention(nn.Module):
         b, h, l, d = tnsr.shape
         q = tnsr
         log_b = math.ceil(math.log2(b))
-        k = get_unfolded(tnsr.reshape(l, h*d, b), self.kernel_b, log_b)
+        k = get_unfolded(tnsr.reshape(l, h*d, b), log_b, log_b)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
