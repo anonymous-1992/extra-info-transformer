@@ -30,7 +30,7 @@ parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_steps", type=int, default=216)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='extra_info_attn')
+parser.add_argument("--attn_type", type=str, default='basic_attn')
 args = parser.parse_args()
 
 n_distinct_trial = 1
@@ -148,7 +148,7 @@ def objective(trial):
 
         n_ext_info = 1
         kernel_b = 1
-        kernel_s = trial.suggest_categorical("kernel_s", [log_s_size, log_s_size*4, log_s_size*8])
+        kernel_s = 1
     else:
         n_ext_info = 0
         kernel_s = 1
