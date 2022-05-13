@@ -44,7 +44,7 @@ class ScaledDotProductAttention(nn.Module):
         self.n_ext_info = n_ext_info
         self.kernel_s = kernel_s
         log_s = math.ceil(math.log2(l_k))
-        self.w_s = nn.Linear(self.kernel_s, log_s)
+        self.w_s = nn.Linear(self.kernel_s, log_s).to(device)
 
     def get_new_rep(self, tnsr):
 
