@@ -43,21 +43,28 @@ class ScaledDotProductAttention(nn.Module):
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
         self.kernel_s = kernel_s
-        log_s = math.ceil(math.log2(l_k))
-        self.w_s = nn.Linear(self.kernel_s, log_s).to(device)
+        self.kernel_b = kernel_b
+        log_b = int(math.log2(b_size))
+        log_b_s = int(log_b / 2)
+        self.w_b = nn.Linear(log_b, log_b_s).to(device)
+        log_s = int(math.log2(l_k))
+        log_s_s = int(log_s / 2)
+        self.w_s = nn.Linear(self.kernel_s, log_s_s).to(device)
 
     def get_new_rep(self, tnsr):
 
         b, h, l, d = tnsr.shape
         q = tnsr
-        k = tnsr.reshape(l, h * d, b)
+        log_b = math.ceil(math.log2(b))
+        k = tnsr.reshape(l, h*d, b)
+        k = F.pad(k, pad=(log_b - 1, 0, 0, 0))
+        k = k.unfold(-1, log_b, 1)
+        k = F.relu(self.w_b(k))
+        k = k.reshape(b, h, l, -1, d)
+        k = k.reshape(b, h*d, -1, l)
         k = F.pad(k, pad=(self.kernel_s - 1, 0, 0, 0))
         k = k.unfold(-1, self.kernel_s, 1)
         k = F.relu(self.w_s(k))
-        log_b = math.ceil(math.log2(b))
-        k = k.reshape(l, h * d, -1, b)
-        k = F.pad(k, pad=(log_b - 1, 0, 0, 0))
-        k = k.unfold(-1, log_b, 1)
         k = k.reshape(b, h, l, -1, d)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
