@@ -30,7 +30,7 @@ parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_steps", type=int, default=216)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='basic_attn')
+parser.add_argument("--attn_type", type=str, default='extra_info_attn')
 args = parser.parse_args()
 
 n_distinct_trial = 1
@@ -143,16 +143,16 @@ def objective(trial):
     global val_loss
     global n_distinct_trial
 
-    d_model = trial.suggest_categorical("d_model", [32, 16])
+    d_model = trial.suggest_categorical("d_model", [64, 32, 16])
     if "extra_info_attn" in args.attn_type:
         n_ext_info = 1
         kernel_b = 1
-        kernel_s = 1
+        kernel_s = trial.suggest_categorical("kernel_s", [log_s_size, log_s_size*2, log_s_size*4])
     else:
         n_ext_info = 0
         kernel_s = 1
         kernel_b = 1
-    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial > 3:
+    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial > 4:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
