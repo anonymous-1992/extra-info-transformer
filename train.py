@@ -146,8 +146,8 @@ def objective(trial):
     d_model = trial.suggest_categorical("d_model", [32, 16])
     if "extra_info_attn" in args.attn_type:
         n_ext_info = 1
-        kernel_b = 1
-        kernel_s = trial.suggest_categorical("kernel_s", [log_s_size, log_s_size*2, log_s_size*4])
+        kernel_b = trial.suggest_categorical("kernel_s", [log_b_size])
+        kernel_s = trial.suggest_categorical("kernel_s", [log_s_size])
     else:
         n_ext_info = 0
         kernel_s = 1
