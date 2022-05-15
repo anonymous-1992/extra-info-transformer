@@ -45,23 +45,23 @@ class ScaledDotProductAttention(nn.Module):
         self.kernel_s = kernel_s
         self.kernel_b = kernel_b
         log_s = int(math.log2(l_k))
-        log_b = int(math.log2(b_size))
-        self.w_s = nn.Linear(self.kernel_s, log_s).to(device)
-        self.w_b = nn.Linear(self.kernel_b, log_b).to(device)
+        kernel = int(self.kernel_s / log_s)
+        p = int(kernel / 2)
+        self.max_pooling = nn.MaxPool3d(kernel_size=(1, 1, kernel), padding=(0, 0, p))
 
     def get_new_rep(self, tnsr):
 
         b, h, l, d = tnsr.shape
         q = tnsr
         k = tnsr.reshape(l, h*d, b)
-        k = F.pad(k, pad=(self.kernel_b - 1, 0, 0, 0))
-        k = k.unfold(-1, self.kernel_b, 1)
-        k = F.relu(self.w_b(k))
+        log_b = int(math.log2(b))
+        k = F.pad(k, pad=(log_b - 1, 0, 0, 0))
+        k = k.unfold(-1, log_b, 1)
         k = k.reshape(b, h, l, -1, d)
         k = k.reshape(b, h*d, -1, l)
         k = F.pad(k, pad=(self.kernel_s - 1, 0, 0, 0))
         k = k.unfold(-1, self.kernel_s, 1)
-        k = F.relu(self.w_s(k))
+        k = self.max_pooling(k)
         k = k.reshape(b, h, l, -1, d)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
