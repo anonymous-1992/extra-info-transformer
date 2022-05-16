@@ -42,6 +42,8 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
+        log_s = int(math.log2(l_k))
+        self.w_s = nn.Linear(log_s, 1).to(device)
 
     def get_new_rep(self, tnsr):
 
@@ -56,11 +58,17 @@ class ScaledDotProductAttention(nn.Module):
         log_s = int(math.log2(l))
         k = F.pad(k, pad=(log_s - 1, 0, 0, 0))
         k = k.unfold(-1, log_s, 1)
+        k = self.w_s(k)
         k = k.reshape(b, h, l, -1, d)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
         attn = self.softmax(score)
         context = torch.einsum('bhkn,bhknd->bhkd', attn, k) + tnsr
+
+        k = context[:, :, 0::log_s, :]
+        score = torch.einsum('bhqd, bhkd-> bhqk', q, k) / np.sqrt(self.d_k)
+        attn = self.softmax(score)
+        context = torch.einsum('bhqk,bhkd->bhqd', attn, k) + context
 
         return context
 
