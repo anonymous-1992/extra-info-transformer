@@ -42,12 +42,6 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
-        self.kernel_s = kernel_s
-        self.kernel_b = kernel_b
-        log_s = int(math.log2(l_k))
-        kernel = int(self.kernel_s / log_s)
-        p = int(kernel / 2)
-        self.max_pooling = nn.MaxPool3d(kernel_size=(1, 1, kernel), padding=(0, 0, p))
 
     def get_new_rep(self, tnsr):
 
@@ -59,9 +53,9 @@ class ScaledDotProductAttention(nn.Module):
         k = k.unfold(-1, log_b, 1)
         k = k.reshape(b, h, l, -1, d)
         k = k.reshape(b, h*d, -1, l)
-        k = F.pad(k, pad=(self.kernel_s - 1, 0, 0, 0))
-        k = k.unfold(-1, self.kernel_s, 1)
-        k = self.max_pooling(k)
+        log_s = int(math.log2(l))
+        k = F.pad(k, pad=(log_s - 1, 0, 0, 0))
+        k = k.unfold(-1, log_s, 1)
         k = k.reshape(b, h, l, -1, d)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
