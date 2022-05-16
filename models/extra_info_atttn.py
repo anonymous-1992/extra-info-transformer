@@ -65,11 +65,6 @@ class ScaledDotProductAttention(nn.Module):
         attn = self.softmax(score)
         context = torch.einsum('bhkn,bhknd->bhkd', attn, k) + tnsr
 
-        k = context[:, :, 0::log_s, :]
-        score = torch.einsum('bhqd, bhkd-> bhqk', q, k) / np.sqrt(self.d_k)
-        attn = self.softmax(score)
-        context = torch.einsum('bhqk,bhkd->bhqd', attn, k) + context
-
         return context
 
     def forward(self, Q, K, V, attn_mask):
