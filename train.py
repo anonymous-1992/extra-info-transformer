@@ -216,7 +216,6 @@ def objective(trial):
             if val_loss > val_inner_loss:
                 val_loss = val_inner_loss
                 best_model = model
-            best_iter_num = epoch
 
         print("Validation loss: {}".format(test_loss))
 
@@ -224,9 +223,6 @@ def objective(trial):
 
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
-
-        if epoch - best_iter_num >= 10:
-            break
 
     return val_inner_loss
 
