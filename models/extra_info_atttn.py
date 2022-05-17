@@ -42,7 +42,7 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
-        self.w_k = nn.Linear(d_k*n_heads, d_k*n_heads).to(device)
+        self.w_k = nn.Linear(d_k*n_heads, d_k*n_heads, bias=False).to(device)
 
     def get_new_rep(self, tnsr):
 
