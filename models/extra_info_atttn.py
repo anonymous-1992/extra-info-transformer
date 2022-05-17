@@ -58,7 +58,7 @@ class ScaledDotProductAttention(nn.Module):
         log_s = int(math.log2(l))
         k = F.pad(k, pad=(log_s - 1, 0, 0, 0))
         k = k.unfold(-1, log_s, 1)
-        #k = F.relu(self.w_s(k))
+        k = F.relu(self.w_s(k))
         k = k.reshape(b, h, l, -1, d)
 
         score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
