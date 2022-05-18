@@ -145,8 +145,8 @@ def objective(trial):
     global val_loss
     global n_distinct_trial
 
-    d_model = trial.suggest_categorical("d_model", [32, 16, 8])
-    dr = trial.suggest_categorical("dr", [0.1, 0.3, 0.5])
+    d_model = trial.suggest_categorical("d_model", [32, 16])
+    dr = trial.suggest_categorical("dr", [0.1, 0.3])
     if "extra_info_attn" in args.attn_type:
         n_ext_info = 1
         kernel_b = 1
@@ -155,7 +155,7 @@ def objective(trial):
         n_ext_info = 0
         kernel_s = 1
         kernel_b = 1
-    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial > 3:
+    if [d_model, n_ext_info, kernel_s, kernel_b] in param_history or n_distinct_trial > 4:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
