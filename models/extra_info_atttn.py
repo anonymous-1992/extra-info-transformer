@@ -115,7 +115,7 @@ class MultiHeadAttention(nn.Module):
         batch_size = Q.shape[0]
         q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        v_s = self.WK(V).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        v_s = k_s
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
         context, attn = ScaledDotProductAttention(d_k=self.d_k,
