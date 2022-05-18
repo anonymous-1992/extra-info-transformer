@@ -145,8 +145,8 @@ def objective(trial):
     global val_loss
     global n_distinct_trial
 
-    d_model = trial.suggest_categorical("d_model", [32, 16])
-    dr = trial.suggest_categorical("dr", [0, 0.1])
+    d_model = trial.suggest_categorical("d_model", [32])
+    dr = trial.suggest_categorical("dr", [0, 0.1, 0.2])
     if "extra_info_attn" in args.attn_type:
         n_ext_info = 1
         kernel_b = 1
