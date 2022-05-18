@@ -42,7 +42,6 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
-        self.w_k = nn.Linear(d_k*n_heads, d_k*n_heads, bias=False).to(device)
 
     def get_new_rep(self, tnsr):
 
@@ -80,7 +79,7 @@ class ScaledDotProductAttention(nn.Module):
         elif "extra_info_attn" in self.attn_type:
 
             K = self.get_new_rep(K)
-            V = self.get_new_rep(V)
+            V = K
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
@@ -96,8 +95,8 @@ class MultiHeadAttention(nn.Module):
         super(MultiHeadAttention, self).__init__()
 
         self.WQ = nn.Linear(d_model, d_k * n_heads, bias=False)
-        self.WK = nn.Linear(d_model, d_k * n_heads, bias=False)
-        self.WV = nn.Linear(d_model, d_v * n_heads, bias=False)
+        '''self.WK = nn.Linear(d_model, d_k * n_heads, bias=False)
+        self.WV = nn.Linear(d_model, d_v * n_heads, bias=False)'''
         self.fc = nn.Linear(n_heads * d_v, d_model, bias=False)
 
         self.device = device
@@ -116,8 +115,8 @@ class MultiHeadAttention(nn.Module):
 
         batch_size = Q.shape[0]
         q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        v_s = self.WV(V).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        k_s = self.WQ(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
+        v_s = self.WQ(V).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
         context, attn = ScaledDotProductAttention(d_k=self.d_k,
