@@ -118,7 +118,8 @@ L1Loss = nn.L1Loss()
 
 def define_model(d_model, n_ext_info,
                  kernel_s, kernel_b, n_heads,
-                 stack_size, src_input_size, tgt_input_size):
+                 stack_size, src_input_size,
+                 tgt_input_size, dr):
 
     d_k = int(d_model / n_heads)
 
@@ -132,7 +133,8 @@ def define_model(d_model, n_ext_info,
                attn_type=args.attn_type,
                n_ext_info=n_ext_info,
                kernel_s=kernel_s,
-               kernel_b=kernel_b, seed=args.seed)
+               kernel_b=kernel_b, seed=args.seed,
+               dr=dr)
     mdl.to(device)
     return mdl
 
@@ -144,6 +146,7 @@ def objective(trial):
     global n_distinct_trial
 
     d_model = trial.suggest_categorical("d_model", [32, 16, 8])
+    dr = trial.suggest_categorical("dr", [0.1, 0.3, 0.5])
     if "extra_info_attn" in args.attn_type:
         n_ext_info = 1
         kernel_b = 1
@@ -181,7 +184,7 @@ def objective(trial):
     valid_en, valid_de, valid_y, valid_id = \
         valid_en.to(device), valid_de.to(device), valid_y.to(device), valid_id
 
-    model = define_model(d_model, n_ext_info, kernel_s, kernel_b, n_heads, stack_size, train_en.shape[3], train_de.shape[3])
+    model = define_model(d_model, n_ext_info, kernel_s, kernel_b, n_heads, stack_size, train_en.shape[3], train_de.shape[3], dr)
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
