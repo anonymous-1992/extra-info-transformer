@@ -155,11 +155,11 @@ def objective(trial):
         n_ext_info = 0
         kernel_s = 1
         kernel_b = 1
-    if [d_model, n_ext_info, dr] in param_history or n_distinct_trial > 4:
+    if [d_model, dr] in param_history or n_distinct_trial > 4:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
-    param_history.append([d_model, n_ext_info, kernel_s, kernel_b])
+    param_history.append([d_model, dr])
     n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
 
