@@ -53,8 +53,8 @@ class ScaledDotProductAttention(nn.Module):
         q = tnsr
         k = tnsr.reshape(l, h*d, b)
         log_b = int(math.log2(b))
-        k = F.pad(k, pad=(log_b*2 - 1, 0, 0, 0))
-        k = k.unfold(-1, log_b*2, 1)
+        k = F.pad(k, pad=(log_b - 1, 0, 0, 0))
+        k = k.unfold(-1, log_b, 1)
         k = F.relu(self.w_b(k))
         k = k.reshape(b, h, l, -1, d)
         k = k.reshape(b, h*d, -1, l)
