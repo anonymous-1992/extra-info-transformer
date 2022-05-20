@@ -43,7 +43,7 @@ class ScaledDotProductAttention(nn.Module):
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
         log_b = int(math.log2(b_size))
-        self.w_b = nn.Linear(log_b*2, log_b).to(device)
+        self.w_b = nn.Linear(log_b, log_b).to(device)
         log_s = int(math.log2(l_k))
         self.w_s = nn.Linear(log_s*2, log_s).to(device)
 
