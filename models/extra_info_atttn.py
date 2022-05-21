@@ -42,10 +42,9 @@ class ScaledDotProductAttention(nn.Module):
         self.attn_type = attn_type
         self.enc_attn = enc_attn
         self.n_ext_info = n_ext_info
-        log_b = int(math.log2(b_size))
-        self.w_b = nn.Linear(log_b, log_b).to(device)
         log_s = int(math.log2(l_k))
-        self.w_s = nn.Linear(log_s*2, log_s).to(device)
+        log_s_half = int(log_s / 2)
+        self.w_s = nn.Linear(log_s*log_s_half, log_s).to(device)
 
     def get_new_rep(self, tnsr):
 
@@ -55,12 +54,12 @@ class ScaledDotProductAttention(nn.Module):
         log_b = int(math.log2(b))
         k = F.pad(k, pad=(log_b - 1, 0, 0, 0))
         k = k.unfold(-1, log_b, 1)
-        k = F.relu(self.w_b(k))
         k = k.reshape(b, h, l, -1, d)
         k = k.reshape(b, h*d, -1, l)
         log_s = int(math.log2(l))
-        k = F.pad(k, pad=(log_s*2 - 1, 0, 0, 0))
-        k = k.unfold(-1, log_s*2, 1)
+        log_s_half = int(log_s / 2)
+        k = F.pad(k, pad=(log_s*log_s_half - 1, 0, 0, 0))
+        k = k.unfold(-1, log_s*log_s_half, 1)
         k = F.relu(self.w_s(k))
         k = k.reshape(b, h, l, -1, d)
 
