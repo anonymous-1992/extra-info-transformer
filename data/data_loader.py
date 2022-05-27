@@ -291,11 +291,11 @@ def download_ett(args):
 def download_camel(args):
 
     """Downloads camels dataset"""
-    url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
+    '''url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
     data_folder = args.data_folder
     data_path = os.path.join(data_folder, 'basin_timeseries_v1p2_metForcing_obsFlow.zip')
     zip_path = data_path
-    download_and_unzip(url, zip_path, data_path, data_folder)
+    download_and_unzip(url, zip_path, data_path, data_folder)'''
     df_list = []
     data_folder = os.path.join(args.data_folder, 'basin_dataset_public_v1p2', 'usgs_streamflow')
     for dir in os.listdir(data_folder):
