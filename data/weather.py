@@ -17,7 +17,7 @@
 
 import sklearn.preprocessing
 from Utils import utils, base
-from data_set.traffic import TrafficFormatter
+from data.traffic import TrafficFormatter
 
 GenericDataFormatter = TrafficFormatter
 DataTypes = base.DataTypes

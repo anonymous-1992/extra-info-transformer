@@ -2,7 +2,7 @@
 import sklearn.preprocessing
 from Utils import utils, base
 
-from data_set.electricity import ElectricityFormatter
+from data.electricity import ElectricityFormatter
 DataTypes = base.DataTypes
 InputTypes = base.InputTypes
 
