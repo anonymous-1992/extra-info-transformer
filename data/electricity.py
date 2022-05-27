@@ -25,11 +25,11 @@ InputTypes = base.InputTypes
 
 
 class ElectricityFormatter(GenericDataFormatter):
-    """Defines and formats data for the electricity dataset.
+    """Defines and formats data_set for the electricity dataset.
     Note that per-entity z-score normalization is used here, and is implemented
     across functions.
     Attributes:
-    column_definition: Defines input and data type of column used in the
+    column_definition: Defines input and data_set type of column used in the
       experiment.
     identifiers: Entity identifiers used in experiments.
     """
@@ -55,14 +55,14 @@ class ElectricityFormatter(GenericDataFormatter):
         self._time_steps = self.get_fixed_params()['total_time_steps']
 
     def split_data(self, df, valid_boundary=1315, test_boundary=1339):
-        """Splits data frame into training-validation-test data frames.
-        This also calibrates scaling object, and transforms data for each split.
+        """Splits data_set frame into training-validation-test data_set frames.
+        This also calibrates scaling object, and transforms data_set for each split.
         Args:
-          df: Source data frame to split.
-          valid_boundary: Starting year for validation data
-          test_boundary: Starting year for test data
+          df: Source data_set frame to split.
+          valid_boundary: Starting year for validation data_set
+          test_boundary: Starting year for test data_set
         Returns:
-          Tuple of transformed (train, valid, test) data.
+          Tuple of transformed (train, valid, test) data_set.
         """
 
         print('Formatting train-valid-test splits.')
@@ -78,11 +78,11 @@ class ElectricityFormatter(GenericDataFormatter):
 
     def set_scalers(self, df):
 
-        """Calibrates scalers using the data supplied.
+        """Calibrates scalers using the data_set supplied.
         Args:
           df: Data to use to calibrate scalers.
         """
-        print('Setting scalers with training data...')
+        print('Setting scalers with training data_set...')
 
         column_definitions = self.get_column_definition()
         id_column = utils.get_single_col_by_input_type(InputTypes.ID,
@@ -140,7 +140,7 @@ class ElectricityFormatter(GenericDataFormatter):
         Args:
           df: Data frame to transform.
         Returns:
-          Transformed data frame.
+          Transformed data_set frame.
         """
 
         if self._real_scalers is None and self._cat_scalers is None:
@@ -229,7 +229,7 @@ class ElectricityFormatter(GenericDataFormatter):
 
     def get_num_samples_for_calibration(self):
         """Gets the default number of training and validation samples.
-        Use to sub-sample the data for network calibration and a value of -1 uses
+        Use to sub-sample the data_set for network calibration and a value of -1 uses
         all available samples.
         Returns:
           Tuple of (training samples, validation samples)

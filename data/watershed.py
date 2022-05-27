@@ -16,7 +16,7 @@
 # Lint as: python3
 
 from Utils import base, utils
-from data.electricity import ElectricityFormatter
+from data_set.electricity import ElectricityFormatter
 import pandas as pd
 
 DataFormatter = ElectricityFormatter
@@ -25,11 +25,11 @@ InputTypes = base.InputTypes
 
 
 class WatershedFormatter(DataFormatter):
-    """Defines and formats data for the electricity dataset.
+    """Defines and formats data_set for the electricity dataset.
         Note that per-entity z-score normalization is used here, and is implemented
         across functions.
         Attributes:
-        column_definition: Defines input and data type of column used in the
+        column_definition: Defines input and data_set type of column used in the
           experiment.
         identifiers: Entity identifiers used in experiments.
         """
@@ -48,14 +48,14 @@ class WatershedFormatter(DataFormatter):
     ]
 
     def split_data(self, df, valid_boundary=1107, test_boundary=1607):
-        """Splits data frame into training-validation-test data frames.
-        This also calibrates scaling object, and transforms data for each split.
+        """Splits data_set frame into training-validation-test data_set frames.
+        This also calibrates scaling object, and transforms data_set for each split.
         Args:
-          df: Source data frame to split.
-          valid_boundary: Starting year for validation data
-          test_boundary: Starting year for test data
+          df: Source data_set frame to split.
+          valid_boundary: Starting year for validation data_set
+          test_boundary: Starting year for test data_set
         Returns:
-          Tuple of transformed (train, valid, test) data.
+          Tuple of transformed (train, valid, test) data_set.
         """
 
         print('Formatting train-valid-test splits.')
@@ -132,7 +132,7 @@ class WatershedFormatter(DataFormatter):
 
     def get_num_samples_for_calibration(self):
         """Gets the default number of training and validation samples.
-        Use to sub-sample the data for network calibration and a value of -1 uses
+        Use to sub-sample the data_set for network calibration and a value of -1 uses
         all available samples.
         Returns:
           Tuple of (training samples, validation samples)

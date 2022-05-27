@@ -22,7 +22,7 @@ def extract_cols_from_data_type(data_type, column_definition,
     column_definition: Column definition to use.
     excluded_input_types: Set of input types to exclude
     Returns:
-    List of names for columns with data type specified.
+    List of names for columns with data_set type specified.
     """
     return [
       tup[0]

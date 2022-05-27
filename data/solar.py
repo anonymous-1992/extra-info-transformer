@@ -16,7 +16,7 @@
 # Lint as: python3
 
 from Utils import base
-from data.electricity import ElectricityFormatter
+from data_set.electricity import ElectricityFormatter
 
 DataFormatter = ElectricityFormatter
 DataTypes = base.DataTypes
@@ -78,7 +78,7 @@ class SolarFormatter(ElectricityFormatter):
 
     def get_num_samples_for_calibration(self):
         """Gets the default number of training and validation samples.
-        Use to sub-sample the data for network calibration and a value of -1 uses
+        Use to sub-sample the data_set for network calibration and a value of -1 uses
         all available samples.
         Returns:
           Tuple of (training samples, validation samples)

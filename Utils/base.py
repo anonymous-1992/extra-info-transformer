@@ -37,14 +37,14 @@ class InputTypes(enum.IntEnum):
 
 
 class GenericDataFormatter(abc.ABC):
-    """Abstract base class for all data formatters.
+    """Abstract base class for all data_set formatters.
     User can implement the abstract methods below to perform dataset-specific
     manipulations.
     """
 
     @abc.abstractmethod
     def set_scalers(self, df):
-        """Calibrates scalers using the data supplied."""
+        """Calibrates scalers using the data_set supplied."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -65,7 +65,7 @@ class GenericDataFormatter(abc.ABC):
     @property
     @abc.abstractmethod
     def _column_definition(self):
-        """Defines order, input type and data type of each column."""
+        """Defines order, input type and data_set type of each column."""
         raise NotImplementedError()
 
     def get_column_definition(self):
@@ -105,7 +105,7 @@ class GenericDataFormatter(abc.ABC):
           'num_encoder_steps': Determines length of LSTM encoder (i.e. history)
           'num_epochs': Maximum number of epochs for training
           'early_stopping_patience': Early stopping param for keras
-          'multiprocessing_workers': # of cpus for data processing
+          'multiprocessing_workers': # of cpus for data_set processing
         Returns:
           A dictionary of fixed parameters, e.g.:
           fixed_params = {
@@ -120,7 +120,7 @@ class GenericDataFormatter(abc.ABC):
 
     def get_num_samples_for_calibration(self):
         """Gets the default number of training and validation samples.
-        Use to sub-sample the data for network calibration and a value of -1 uses
+        Use to sub-sample the data_set for network calibration and a value of -1 uses
         all available samples.
         Returns:
           Tuple of (training samples, validation samples)

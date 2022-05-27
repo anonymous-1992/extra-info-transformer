@@ -17,7 +17,7 @@
 
 import sklearn.preprocessing
 from Utils import utils, base
-from data.traffic import TrafficFormatter
+from data_set.traffic import TrafficFormatter
 
 GenericDataFormatter = TrafficFormatter
 DataTypes = base.DataTypes
@@ -38,14 +38,14 @@ class weatherFormatter(TrafficFormatter):
         ]
 
     def split_data(self, df, valid_boundary=4280, test_boundary=4708):
-        """Splits data frame into training-validation-test data frames.
-        This also calibrates scaling object, and transforms data for each split.
+        """Splits data_set frame into training-validation-test data_set frames.
+        This also calibrates scaling object, and transforms data_set for each split.
         Args:
-          df: Source data frame to split.
-          valid_boundary: Starting year for validation data
-          test_boundary: Starting year for test data
+          df: Source data_set frame to split.
+          valid_boundary: Starting year for validation data_set
+          test_boundary: Starting year for test data_set
         Returns:
-          Tuple of transformed (train, valid, test) data.
+          Tuple of transformed (train, valid, test) data_set.
         """
 
         print('Formatting train-valid-test splits.')
@@ -61,7 +61,7 @@ class weatherFormatter(TrafficFormatter):
 
     def get_num_samples_for_calibration(self):
         """Gets the default number of training and validation samples.
-        Use to sub-sample the data for network calibration and a value of -1 uses
+        Use to sub-sample the data_set for network calibration and a value of -1 uses
         all available samples.
         Returns:
           Tuple of (training samples, validation samples)

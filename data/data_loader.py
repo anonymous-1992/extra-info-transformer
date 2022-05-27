@@ -71,7 +71,7 @@ class ExperimentConfig(object):
         return os.path.join(self.data_folder, csv_map[self.experiment])
 
     def make_data_formatter(self):
-        """Gets a data formatter object for experiment.
+        """Gets a data_set formatter object for experiment.
         Returns:
           Default DataFormatter per experiment.
         """
@@ -93,7 +93,7 @@ class ExperimentConfig(object):
 def download_from_url(url, output_path):
     """Downloads a file from url."""
 
-    print('Pulling data from {} to {}'.format(url, output_path))
+    print('Pulling data_set from {} to {}'.format(url, output_path))
     wget.download(url, output_path)
     print('done')
 
@@ -116,7 +116,7 @@ def download_and_unzip(url, zip_path, csv_path, data_folder):
     url: Web address
     zip_path: Path to download zip file
     csv_path: Expected path to csv file
-    data_folder: Folder in which data is stored.
+    data_folder: Folder in which data_set is stored.
     """
 
     download_from_url(url, zip_path)
@@ -291,11 +291,11 @@ def download_ett(args):
 def download_camel(args):
 
     """Downloads camels dataset"""
-    '''url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
+    url = "https://ral.ucar.edu/sites/default/files/public/product-tool/camels-catchment-attributes-and-meteorology-for-large-sample-studies-dataset-downloads/basin_timeseries_v1p2_metForcing_obsFlow.zip"
     data_folder = args.data_folder
     data_path = os.path.join(data_folder, 'basin_timeseries_v1p2_metForcing_obsFlow.zip')
     zip_path = data_path
-    download_and_unzip(url, zip_path, data_path, data_folder)'''
+    download_and_unzip(url, zip_path, data_path, data_folder)
     df_list = []
     data_folder = os.path.join(args.data_folder, 'basin_dataset_public_v1p2', 'usgs_streamflow')
     for dir in os.listdir(data_folder):
@@ -431,7 +431,7 @@ def download_electricity(args):
 
     download_and_unzip(url, zip_path, csv_path, data_folder)
 
-    print('Aggregating to hourly data')
+    print('Aggregating to hourly data_set')
 
     df = pd.read_csv(csv_path, index_col=0, sep=';', decimal=',')
     df.index = pd.to_datetime(df.index)
@@ -495,7 +495,7 @@ def download_traffic(args):
 
     download_and_unzip(url, zip_path, csv_path, data_folder)
 
-    print('Aggregating to hourly data')
+    print('Aggregating to hourly data_set')
 
     def process_list(s, variable_type=int, delimiter=None):
         """Parses a line in the PEMS format to a list."""
@@ -569,7 +569,7 @@ def download_traffic(args):
     hourly_list = []
     for day, day_matrix in enumerate(combined_tensor):
 
-        # Hourly data
+        # Hourly data_set
         hourly = pd.DataFrame(day_matrix.T, columns=labels)
         hourly['hour_on_day'] = [int(i / 6) for i in hourly.index
                                 ]  # sampled at 10 min intervals
@@ -657,7 +657,7 @@ def process_favorita(config):
     if not os.path.exists(zip_file):
         raise ValueError(
             'Favorita zip file not found in {}!'.format(zip_file) +
-            ' Please manually download data from Kaggle @ {}'.format(url))
+            ' Please manually download data_set from Kaggle @ {}'.format(url))
 
     # Unpack main zip file
     outputs_file = os.path.join(data_folder, 'train.csv.7z')
@@ -670,15 +670,15 @@ def process_favorita(config):
 
         unzip(file, csv_file, data_folder)
 
-    print('Unzipping complete, commencing data processing...')
+    print('Unzipping complete, commencing data_set processing...')
 
-    # Extract only a subset of data to save/process for efficiency
+    # Extract only a subset of data_set to save/process for efficiency
     start_date = pd.datetime(2015, 1, 1)
     end_date = pd.datetime(2016, 6, 1)
 
-    print('Regenerating data...')
+    print('Regenerating data_set...')
 
-    # load temporal data
+    # load temporal data_set
     temporal = pd.read_csv(os.path.join(data_folder, 'train.csv'), index_col=0)
 
     store_info = pd.read_csv(os.path.join(data_folder, 'stores.csv'), index_col=0)
@@ -688,7 +688,7 @@ def process_favorita(config):
     items = pd.read_csv(os.path.join(data_folder, 'items.csv'), index_col=0)
     transactions = pd.read_csv(os.path.join(data_folder, 'transactions.csv'))
 
-    # Take first 6 months of data
+    # Take first 6 months of data_set
     temporal['date'] = pd.to_datetime(temporal['date'])
 
     # Filter dates to reduce storage space requirements
@@ -706,7 +706,7 @@ def process_favorita(config):
       str)
 
     # Remove all IDs with negative returns
-    print('Removing returns data')
+    print('Removing returns data_set')
     min_returns = temporal['unit_sales'].groupby(temporal['traj_id']).min()
     valid_ids = set(min_returns[min_returns >= 0].index)
     selector = temporal['traj_id'].apply(lambda traj_id: traj_id in valid_ids)
@@ -727,7 +727,7 @@ def process_favorita(config):
         sub_df[['store_nbr', 'item_nbr', 'onpromotion']] \
             = sub_df[['store_nbr', 'item_nbr', 'onpromotion']].fillna(method='ffill')
         sub_df['open'] = sub_df['open'].fillna(
-            0)  # flag where sales data is unknown
+            0)  # flag where sales data_set is unknown
         sub_df['log_sales'] = np.log(sub_df['unit_sales'])
 
         resampled_dfs.append(sub_df.reset_index(drop=True))
@@ -804,7 +804,7 @@ def main(expt_name, force_download, output_folder):
         print('Data has been processed for {}. Skipping download...'.format(
             expt_name))
     else:
-        print('Resetting data folder...')
+        print('Resetting data_set folder...')
         #shutil.rmtree(expt_config.data_csv_path)
         os.makedirs(expt_config.data_csv_path)
 
@@ -826,8 +826,8 @@ def main(expt_name, force_download, output_folder):
 
     download_function = download_functions[expt_name]
 
-    # Run data download
-    print('Getting {} data...'.format(expt_name))
+    # Run data_set download
+    print('Getting {} data_set...'.format(expt_name))
     download_function(expt_config)
 
     print('Download completed.')
@@ -851,14 +851,14 @@ if __name__ == '__main__':
             type=str,
             nargs='?',
             default='.',
-            help='Path to folder for data download')
+            help='Path to folder for data_set download')
         parser.add_argument(
             '--force_download',
             type=str,
             nargs='?',
             choices=['yes', 'no'],
             default='yes',
-            help='Whether to re-run data download')
+            help='Whether to re-run data_set download')
 
         args = parser.parse_args()
 

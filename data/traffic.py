@@ -36,14 +36,14 @@ class TrafficFormatter(GenericDataFormatter):
     ]
 
     def split_data(self, df, valid_boundary=151, test_boundary=166):
-        """Splits data frame into training-validation-test data frames.
-        This also calibrates scaling object, and transforms data for each split.
+        """Splits data_set frame into training-validation-test data_set frames.
+        This also calibrates scaling object, and transforms data_set for each split.
         Args:
-          df: Source data frame to split.
-          valid_boundary: Starting year for validation data
-          test_boundary: Starting year for test data
+          df: Source data_set frame to split.
+          valid_boundary: Starting year for validation data_set
+          test_boundary: Starting year for test data_set
         Returns:
-          Tuple of transformed (train, valid, test) data.
+          Tuple of transformed (train, valid, test) data_set.
         """
 
         print('Formatting train-valid-test splits.')
@@ -58,11 +58,11 @@ class TrafficFormatter(GenericDataFormatter):
         return (self.transform_inputs(data) for data in [train, valid, test])
 
     def set_scalers(self, df):
-        """Calibrates scalers using the data supplied.
+        """Calibrates scalers using the data_set supplied.
         Args:
           df: Data to use to calibrate scalers.
         """
-        print('Setting scalers with training data...')
+        print('Setting scalers with training data_set...')
 
         column_definitions = self.get_column_definition()
         id_column = utils.get_single_col_by_input_type(InputTypes.ID,
@@ -107,7 +107,7 @@ class TrafficFormatter(GenericDataFormatter):
         Args:
           df: Data frame to transform.
         Returns:
-          Transformed data frame.
+          Transformed data_set frame.
         """
         output = df.copy()
 
@@ -180,7 +180,7 @@ class TrafficFormatter(GenericDataFormatter):
 
     def get_num_samples_for_calibration(self):
         """Gets the default number of training and validation samples.
-        Use to sub-sample the data for network calibration and a value of -1 uses
+        Use to sub-sample the data_set for network calibration and a value of -1 uses
         all available samples.
         Returns:
           Tuple of (training samples, validation samples)
