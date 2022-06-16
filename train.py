@@ -23,13 +23,13 @@ from optuna.trial import TrialState
 
 
 parser = argparse.ArgumentParser(description="train context-aware attention")
-parser.add_argument("--name", type=str, default='extra_info_attn')
+parser.add_argument("--name", type=str, default='ACAT')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
-parser.add_argument("--total_steps", type=int, default=216)
+parser.add_argument("--total_steps", type=int, default=14*30)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='extra_info_attn')
+parser.add_argument("--attn_type", type=str, default='ACAT')
 args = parser.parse_args()
 
 n_distinct_trial = 1
@@ -39,7 +39,7 @@ formatter = config.make_data_formatter()
 data_csv_path = "{}.csv".format(args.exp_name)
 
 print("Loading & splitting data_set...")
-raw_data = pd.read_csv(data_csv_path, error_bad_lines=False)
+raw_data = pd.read_csv(data_csv_path)
 train_data, valid, test = formatter.split_data(raw_data)
 train_max, valid_max = formatter.get_num_samples_for_calibration()
 params = formatter.get_experiment_params()
@@ -115,8 +115,7 @@ torch.autograd.set_detect_anomaly(True)
 L1Loss = nn.L1Loss()
 
 
-def define_model(d_model, n_ext_info,
-                 kernel_s, kernel_b, n_heads,
+def define_model(d_model, n_heads,
                  stack_size, src_input_size,
                  tgt_input_size, dr):
 
@@ -129,10 +128,7 @@ def define_model(d_model, n_ext_info,
                d_k=d_k, d_v=d_k, n_heads=n_heads,
                n_layers=stack_size, src_pad_index=0,
                tgt_pad_index=0, device=device,
-               attn_type=args.attn_type,
-               n_ext_info=n_ext_info,
-               kernel_s=kernel_s,
-               kernel_b=kernel_b, seed=args.seed,
+               attn_type=args.attn_type, seed=args.seed,
                dr=dr)
     mdl.to(device)
     return mdl
@@ -144,23 +140,15 @@ def objective(trial):
     global val_loss
     global n_distinct_trial
 
-    d_model = trial.suggest_categorical("d_model", [16])
+    d_model = trial.suggest_categorical("d_model", [16, 32])
     dr = trial.suggest_categorical("dr", [0.2, 0.1, 0])
-    if "extra_info_attn" in args.attn_type:
-        n_ext_info = 1
-        kernel_b = 1
-        kernel_s = 1
-    else:
-        n_ext_info = 0
-        kernel_s = 1
-        kernel_b = 1
     if [d_model, dr] in param_history or n_distinct_trial > 4:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
     param_history.append([d_model, dr])
-    n_heads = model_params["num_heads"]
     stack_size = model_params["stack_size"]
+    n_heads = model_params["num_heads"]
 
     train_en, train_de, train_y, train_id = torch.from_numpy(train_sample['enc_inputs']).to(device), \
                                             torch.from_numpy(train_sample['dec_inputs']).to(device), \
@@ -183,7 +171,7 @@ def objective(trial):
     valid_en, valid_de, valid_y, valid_id = \
         valid_en.to(device), valid_de.to(device), valid_y.to(device), valid_id
 
-    model = define_model(d_model, n_ext_info, kernel_s, kernel_b, n_heads, stack_size, train_en.shape[3], train_de.shape[3], dr)
+    model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3], dr)
 
     optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
