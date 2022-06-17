@@ -100,16 +100,27 @@ class ACAT(nn.Module):
         K_p = torch.cat(K_l, dim=0).reshape(b, d_k*h, l_k, -1)
         Q = self.max_pooling(Q_p).reshape(b, h, -1, d_k)
         K = self.max_pooling(K_p).reshape(b, h, -1, d_k)
+        log_k = int(math.log2(l_k))
+        K, index = torch.topk(K, dim=2, k=log_k)
+        index = torch.max(index, -1)[0]
+        index = index.unsqueeze(-2).repeat(1, 1, l, 1)
 
         scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
         if attn_mask is not None:
+            attn_mask = attn_mask[:, :, :, 0:log_k]
             attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
             attn_mask = attn_mask.to(self.device)
             scores.masked_fill_(attn_mask, -1e9)
 
         attn = torch.softmax(scores, -1)
-        context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
+
+        attn_f = torch.zeros(b, h, l, l_k, device=self.device)
+        attn_f[torch.arange(b)[:, None, None, None],
+               torch.arange(h)[None, :, None, None],
+               torch.arange(l)[None, None, :, None],
+               index] = attn
+        context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
         return context, attn
 
 
