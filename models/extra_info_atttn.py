@@ -54,36 +54,27 @@ class BasicAttn(nn.Module):
 
 class ACAT(nn.Module):
 
-    def __init__(self, d_k, device, h, l_q, l_k):
+    def __init__(self, d_k, device, h):
 
         super(ACAT, self).__init__()
         self.device = device
         self.d_k = d_k
 
-        def get_filter_length(l):
-            f = int(l / math.log2(l))
-            return [f, int(f/2), int(f/4), int(f/8)]
-
-        s_d = int(d_k*h / 8)
-        self.filter_length_q = get_filter_length(l_q)
-        self.filter_length_k = get_filter_length(l_k)
-        self.proj_q = nn.Linear(d_k*h, s_d, bias=False, device=device)
-        self.proj_k = nn.Linear(d_k*h, s_d, bias=False, device=device)
-        self.proj_b_q = nn.Linear(s_d, d_k*h, bias=False, device=device)
-        self.proj_b_k = nn.Linear(s_d, d_k*h, bias=False, device=device)
+        self.filter_length_q = [1, 3, 6, 9]
+        self.filter_length_k = [1, 3, 6, 9]
         self.conv_list_q = nn.ModuleList(
-            [nn.Conv1d(in_channels=s_d, out_channels=s_d,
+            [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
                        kernel_size=f,
                        padding=int(f/2),
                        bias=False,
                        device=device) for f in self.filter_length_q])
         self.conv_list_k = nn.ModuleList(
-            [nn.Conv1d(in_channels=s_d, out_channels=s_d,
+            [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
                        kernel_size=f,
                        padding=int(f/2),
                        bias=False,
                        device=device) for f in self.filter_length_k])
-        self.norm = nn.BatchNorm1d(s_d, device=device)
+        self.norm = nn.BatchNorm1d(d_k*h, device=device)
         self.activation = nn.ELU()
         self.max_pooling = nn.MaxPool2d(kernel_size=(1, 4))
 
@@ -96,18 +87,13 @@ class ACAT(nn.Module):
         b, h, l, d_k = Q.shape
         l_k = K.shape[2]
 
-        Q = self.proj_q(Q.reshape(b, l, h*d_k)).reshape(b, -1, l)
-        K = self.proj_k(K.reshape(b, l_k, h*d_k)).reshape(b, -1, l_k)
-
-        Q_l = [self.proj_b_q(
-               self.activation(self.norm(
-               self.conv_list_q[i](Q)))
-               [:, :, :l].reshape(b, l, -1))
+        Q_l = [self.activation(self.norm(
+               self.conv_list_q[i](Q.reshape(b, h*d_k, -1))))
+               [:, :, :l].reshape(b, l, -1)
                for i in range(len(self.filter_length_q))]
-        K_l = [self.proj_b_k(
-               self.activation(self.norm(
-               self.conv_list_k[i](K)))
-               [:, :, :l_k].reshape(b, l_k, -1))
+        K_l = [self.activation(self.norm(
+               self.conv_list_k[i](K.reshape(b, h*d_k, -1))))
+               [:, :, :l_k].reshape(b, l_k, -1)
                for i in range(len(self.filter_length_k))]
 
         Q_p = torch.cat(Q_l, dim=0).reshape(b, d_k*h, l, -1)
@@ -115,22 +101,15 @@ class ACAT(nn.Module):
         Q = self.max_pooling(Q_p).reshape(b, h, -1, d_k)
         K = self.max_pooling(K_p).reshape(b, h, -1, d_k)
 
-        m_f = max(self.filter_length_q)
-        K = K[:, :, 0::m_f, :]
-
         scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
         if attn_mask is not None:
-            attn_mask = attn_mask[:, :, :, 0::m_f]
             attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
             attn_mask = attn_mask.to(self.device)
             scores.masked_fill_(attn_mask, -1e9)
 
         attn = torch.softmax(scores, -1)
-        attn_f = torch.zeros(b, h, l, l_k).to(self.device)
-        attn_f[:, :, :, 0::m_f] = attn
-        attn_f = torch.softmax(attn_f, -1)
-        context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
+        context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
         return context, attn
 
 
@@ -166,7 +145,7 @@ class MultiHeadAttention(nn.Module):
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
         elif self.attn_type == "ACAT":
             context, attn = ACAT(d_k=self.d_k, device=self.device,
-                                 h=self.n_heads, l_q=q_s.shape[2], l_k=k_s.shape[2])(
+                                 h=self.n_heads)(
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
 
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
