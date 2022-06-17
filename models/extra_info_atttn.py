@@ -45,7 +45,7 @@ class BasicAttn(nn.Module):
             attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
             attn_mask = attn_mask.to(self.device)
             scores.masked_fill_(attn_mask, -1e9)
-        attn = torch.softmax(scores)
+        attn = torch.softmax(scores, -1)
         context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
         return context, attn
