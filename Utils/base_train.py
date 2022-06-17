@@ -98,13 +98,13 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
                 len(valid_sampling_locations), len(valid_sampling_locations), replace=False)
         ]
 
-    ranges.sort(key=lambda elem: (elem[0], elem[1]))
+    '''ranges.sort(key=lambda elem: (elem[0], elem[1]))
     ranges = [[x for x in g] for k, g in groupby(ranges, key=lambda x:x[0])]
     chunk_size = int(math.log2(batch_size))
     ranges = list(chain.from_iterable(ranges))
     ranges = [ranges[i:i+chunk_size] for i in range(0, len(ranges), chunk_size)]
     random.shuffle(ranges)
-    ranges = list(chain.from_iterable(ranges))
+    ranges = list(chain.from_iterable(ranges))'''
 
     id_col = utils.get_single_col_by_input_type(InputTypes.ID, column_definition)
     time_col = utils.get_single_col_by_input_type(InputTypes.TIME, column_definition)

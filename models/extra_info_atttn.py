@@ -37,7 +37,6 @@ class BasicAttn(nn.Module):
         super(BasicAttn, self).__init__()
         self.device = device
         self.d_k = d_k
-        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, Q, K, V, attn_mask):
 
@@ -46,7 +45,7 @@ class BasicAttn(nn.Module):
             attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
             attn_mask = attn_mask.to(self.device)
             scores.masked_fill_(attn_mask, -1e9)
-        attn = self.softmax(scores)
+        attn = torch.softmax(scores)
         context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
         return context, attn
