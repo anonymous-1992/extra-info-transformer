@@ -60,8 +60,8 @@ class ACAT(nn.Module):
         self.device = device
         self.d_k = d_k
 
-        self.filter_length_q = [1, 3, 6, 9]
-        self.filter_length_k = [1, 3, 6, 9]
+        self.filter_length_q = [3, 9, 14]
+        self.filter_length_k = [3, 9, 14]
         self.conv_list_q = nn.ModuleList(
             [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
                        kernel_size=f,
@@ -76,7 +76,7 @@ class ACAT(nn.Module):
                        device=device) for f in self.filter_length_k])
         self.norm = nn.BatchNorm1d(d_k*h, device=device)
         self.activation = nn.ELU()
-        self.max_pooling = nn.MaxPool2d(kernel_size=(1, 4))
+        self.max_pooling = nn.MaxPool2d(kernel_size=(1, 3))
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -100,7 +100,7 @@ class ACAT(nn.Module):
         K_p = torch.cat(K_l, dim=0).reshape(b, d_k*h, l_k, -1)
         Q = self.max_pooling(Q_p).reshape(b, h, -1, d_k)
         K = self.max_pooling(K_p).reshape(b, h, -1, d_k)
-        log_k = int(math.log2(l_k))
+        log_k = int(l_k / max(self.filter_length_k))
         K, index = torch.topk(K, dim=2, k=log_k)
         index = torch.max(index, -1)[0]
         index = index.unsqueeze(-2).repeat(1, 1, l, 1)
