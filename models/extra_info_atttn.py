@@ -264,11 +264,11 @@ class ACAT(nn.Module):
 
         self.filter_length = [9]
         self.conv_list_q = nn.ParameterList(
-            [nn.Parameter(torch.randn(d_k*h, f, requires_grad=True, dtype=torch.cfloat))
+            [nn.Parameter(torch.randn(d_k*h, f, requires_grad=True, dtype=torch.cfloat, device=device))
             for f in self.filter_length]
         )
         self.conv_list_k = nn.ParameterList(
-            [nn.Parameter(torch.randn(d_k * h, f, requires_grad=True, dtype=torch.cfloat))
+            [nn.Parameter(torch.randn(d_k * h, f, requires_grad=True, dtype=torch.cfloat, device=device))
              for f in self.filter_length]
         )
 
