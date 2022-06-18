@@ -301,7 +301,9 @@ class ACAT(nn.Module):
         q_fft = torch.fft.rfft(Q.permute(0, 2, 3, 1).contiguous(), dim=-1)
         k_fft = torch.fft.rfft(K.permute(0, 2, 3, 1).contiguous(), dim=-1)
 
+        q_fft = q_fft.permute(0, 2, 1, 3)
         b, l, h, d_k = q_fft.shape
+        k_fft = k_fft.permute(0, 2, 1, 3)
         l_k = K.shape[1]
 
         Q_l = [self.activation(self.norm(
