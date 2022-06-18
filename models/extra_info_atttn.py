@@ -346,42 +346,52 @@ class ACAT(nn.Module):
 
     def forward(self, Q, K, V, attn_mask):
 
-        b, h, l, d_k = Q.shape
-        l_k = K.shape[2]
+        b, l, h, d_k = Q.shape
+        l_k = K.shape[1]
 
-        Q_l = [self.activation(self.norm(
-               self.conv_list_q[i](Q.reshape(b, h*d_k, -1))))
+        q_fft = torch.fft.rfft(Q.permute(0, 2, 3, 1).contiguous(), dim=-1)
+        k_fft = torch.fft.rfft(K.permute(0, 2, 3, 1).contiguous(), dim=-1)
+
+        '''Q_l = [self.activation(self.norm(
+               self.conv_list_q[i](q_fft.reshape(b, h*d_k, -1))))
                [:, :, :l].reshape(b, l, -1)
                for i in range(len(self.filter_length_q))]
         K_l = [self.activation(self.norm(
-               self.conv_list_k[i](K.reshape(b, h*d_k, -1))))
+               self.conv_list_k[i](k_fft.reshape(b, h*d_k, -1))))
                [:, :, :l_k].reshape(b, l_k, -1)
                for i in range(len(self.filter_length_k))]
 
         Q = torch.cat(Q_l, dim=0).reshape(b, h, -1, d_k)
-        K = torch.cat(K_l, dim=0).reshape(b, h, -1, d_k)
-        log_k = int(l_k / max(self.filter_length_k))
+        K = torch.cat(K_l, dim=0).reshape(b, h, -1, d_k)'''
+        '''log_k = int(l_k / max(self.filter_length_k))
         K, index = torch.topk(K, dim=2, k=log_k)
         index = index[:, :, :, 0]
-        index = index.unsqueeze(-2).repeat(1, 1, l, 1)
+        index = index.unsqueeze(-2).repeat(1, 1, l, 1)'''
 
-        scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+        res = torch.einsum('bhdq,bhdk->bhqk', q_fft, k_fft) / np.sqrt(self.d_k)
+        scores = torch.fft.irfft(res, dim=-1)
 
-        if attn_mask is not None:
-            attn_mask = attn_mask[:, :, :, 0:log_k]
-            attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-            attn_mask = attn_mask.to(self.device)
-            scores.masked_fill_(attn_mask, -1e9)
+        #scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
-        attn = torch.softmax(scores, -1)
+        head = V.shape[1]
+        channel = V.shape[3]
+        length = V.shape[2]
+        # find top k
+        top_k = int(math.log(length))
+        mean_value = torch.mean(torch.mean(scores, dim=1), dim=1)
+        index = torch.topk(torch.mean(mean_value, dim=0), top_k, dim=-1)[1]
+        weights = torch.stack([mean_value[:, index[i]] for i in range(top_k)], dim=-1)
+        attn = torch.softmax(weights, -1)
 
-        attn_f = torch.zeros(b, h, l, l_k, device=self.device)
+        attn_f = torch.zeros((b, h, l, l_k), device=self.device)
         attn_f[torch.arange(b)[:, None, None, None],
-               torch.arange(h)[None, :, None, None],
-               torch.arange(l)[None, None, :, None],
-               index] = attn
+                  torch.arange(h)[None, :, None, None],
+                  torch.arange(l)[None, None, :, None],
+                  index] = attn.unsqueeze(1).unsqueeze(1).repeat(1, h, l, 1)
+
+        #attn_f = torch.zeros(b, h, l, l_k, device=self.device)
         context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
-        return context, attn
+        return context, attn_f
 
 
 class MultiHeadAttention(nn.Module):
@@ -413,7 +423,7 @@ class MultiHeadAttention(nn.Module):
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
         if self.attn_type == "ACAT":
             context, attn = ACAT(d_k=self.d_k, device=self.device, h=self.n_heads)(
-                Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
+                Q=q_s.transpose(1, 2), K=k_s.transpose(1, 2), V=v_s, attn_mask=attn_mask)
         elif self.attn_type == "basic_attn":
             context, attn = BasicAttn(d_k=self.d_k, device=self.device)(
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
