@@ -240,27 +240,16 @@ class BasicAttn(nn.Module):
 
     def forward(self, Q, K, V, attn_mask):
 
-        b, h, l, l_k = Q.shape[0], Q.shape[1], Q.shape[2], K.shape[2]
-        log_k = int(l_k / 9)
-        K, index = torch.topk(K, dim=2, k=log_k)
-        index = index[:, :, :, 0]
-        index = index.unsqueeze(-2).repeat(1, 1, l, 1)
-
         scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
 
         if attn_mask is not None:
-            attn_mask = attn_mask[:, :, :, 0:log_k]
+
             attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
             attn_mask = attn_mask.to(self.device)
             scores.masked_fill_(attn_mask, -1e9)
 
         attn = torch.softmax(scores, -1)
-        attn_f = torch.zeros(b, h, l, l_k, device=self.device)
-        attn_f[torch.arange(b)[:, None, None, None],
-               torch.arange(h)[None, :, None, None],
-               torch.arange(l)[None, None, :, None],
-               index] = attn
-        context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
+        context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
         return context, attn
 
@@ -273,59 +262,47 @@ class ACAT(nn.Module):
         self.device = device
         self.d_k = d_k
 
-        self.filter_length_q = [9]
-        self.filter_length_k = [9]
-        self.conv_list_q = nn.ModuleList(
-            [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
-                       kernel_size=f,
-                       padding=int(f/2),
-                       bias=False,
-                       device=device,
-                       dtype=torch.complex64) for f in self.filter_length_q])
-        self.conv_list_k = nn.ModuleList(
-            [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
-                       kernel_size=f,
-                       padding=int(f/2),
-                       bias=False,
-                       device=device,
-                       dtype=torch.complex64) for f in self.filter_length_k])
-        self.norm = nn.BatchNorm1d(d_k*h, device=device)
-        self.activation = nn.ELU()
-        self.Linear_q = nn.Linear(len(self.conv_list_q), 1, device=self.device)
-        self.Linear_k = nn.Linear(len(self.conv_list_k), 1, device=self.device)
+        self.filter_length = [9]
+        self.conv_list_q = nn.ParameterList(
+            [nn.Parameter(torch.randn(d_k*h, f, requires_grad=True, dtype=torch.cfloat))
+            for f in self.filter_length]
+        )
+        self.conv_list_k = nn.ParameterList(
+            [nn.Parameter(torch.randn(d_k * h, f, requires_grad=True, dtype=torch.cfloat))
+             for f in self.filter_length]
+        )
+
+        self.Linear_q = nn.Linear(len(self.conv_list_q), 1, device=self.device, dtype=torch.cfloat)
+        self.Linear_k = nn.Linear(len(self.conv_list_k), 1, device=self.device, dtype=torch.cfloat)
 
         for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='leaky_relu')
+            if isinstance(m, nn.Parameter):
+                nn.init.kaiming_normal_(m, mode='fan_in', nonlinearity='leaky_relu')
+
+    def get_complex_conv(self, signal, shape):
+
+        b, h, l, d_k = shape
+        signal_multi_pad = [F.pad(signal, (int(f/2), int(f/2))).unfold(-1, f, 1) for f in self.filter_length]
+
+        signal_multi = [torch.einsum('bdlk, dk -> bdl', signal_multi_pad[i], self.conv_list_q[i])
+               for i in range(len(self.filter_length))]
+        signal_f = self.Linear_q(torch.cat(signal_multi, dim=0).
+                                 reshape(b, h * d_k, -1, len(self.filter_length))).reshape(b, h, l, d_k)
+        return signal_f
 
     def forward(self, Q, K, V, attn_mask):
 
         q_fft = torch.fft.rfft(Q.permute(0, 2, 3, 1).contiguous(), dim=-1)
         k_fft = torch.fft.rfft(K.permute(0, 2, 3, 1).contiguous(), dim=-1)
-
         q_fft = q_fft.permute(0, 1, 3, 2)
-        b, h, l, d_k = q_fft.shape
         k_fft = k_fft.permute(0, 1, 3, 2)
-        l_k = k_fft.shape[2]
+        b, h, l, d_k = q_fft.shape
 
-        Q_l = [self.activation(self.norm(
-               self.conv_list_q[i](q_fft.reshape(b, h*d_k, -1))))
-               [:, :, :l].reshape(b, l, -1)
-               for i in range(len(self.filter_length_q))]
-        K_l = [self.activation(self.norm(
-               self.conv_list_k[i](k_fft.reshape(b, h*d_k, -1))))
-               [:, :, :l_k].reshape(b, l_k, -1)
-               for i in range(len(self.filter_length_k))]
-
-        q_fft = torch.cat(Q_l, dim=0).reshape(b, h*d_k, -1, len(self.filter_length_q))
-        k_fft = torch.cat(K_l, dim=0).reshape(b, h*d_k, -1, len(self.filter_length_k))
-        q_fft = self.Linear_q(q_fft).reshape(b, h, l, d_k)
-        k_fft = self.Linear_k(k_fft).reshape(b, h, l_k, d_k)
+        q_fft = self.get_complex_conv(q_fft.reshape(b, h*d_k, -1), q_fft.shape)
+        k_fft = self.get_complex_conv(k_fft.reshape(b, h*d_k, -1), k_fft.shape)
 
         scores = torch.einsum('bhqd,bhkd->bhqk', q_fft, k_fft) / np.sqrt(self.d_k)
         scores = torch.fft.irfft(scores, dim=-1)
-
-        #scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
         length = V.shape[2]
         # find top k
