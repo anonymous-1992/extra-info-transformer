@@ -312,7 +312,7 @@ class ACAT(nn.Module):
         weights = torch.stack([mean_value[:, index[i]] for i in range(top_k)], dim=-1)
         attn = torch.softmax(weights, -1)
 
-        attn_f = torch.zeros(b, h, Q.shape[1], K.shape[1]).float()
+        attn_f = torch.zeros(b, h, Q.shape[1], K.shape[1], device=self.device).float()
         attn_f[torch.arange(b)[:, None, None, None],
                   torch.arange(h)[None, :, None, None],
                   torch.arange(Q.shape[1])[None, None, :, None],
