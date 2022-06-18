@@ -44,7 +44,7 @@ train_data, valid, test = formatter.split_data(raw_data)
 train_max, valid_max = formatter.get_num_samples_for_calibration()
 params = formatter.get_experiment_params()
 
-batch_size = 512
+batch_size = 128
 
 train_sample = batch_sampled_data(train_data, train_max, batch_size, args.total_steps,
                                      params['num_encoder_steps'], params["column_definition"], args.seed)

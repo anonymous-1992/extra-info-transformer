@@ -280,13 +280,15 @@ class ACAT(nn.Module):
                        kernel_size=f,
                        padding=int(f/2),
                        bias=False,
-                       device=device) for f in self.filter_length_q])
+                       device=device,
+                       dtype=torch.complex64) for f in self.filter_length_q])
         self.conv_list_k = nn.ModuleList(
             [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
                        kernel_size=f,
                        padding=int(f/2),
                        bias=False,
-                       device=device) for f in self.filter_length_k])
+                       device=device,
+                       dtype=torch.complex64) for f in self.filter_length_k])
         self.norm = nn.BatchNorm1d(d_k*h, device=device)
         self.activation = nn.ELU()
         self.Linear_q = nn.Linear(len(self.conv_list_q), 1, device=self.device)
@@ -301,13 +303,10 @@ class ACAT(nn.Module):
         q_fft = torch.fft.rfft(Q.permute(0, 2, 3, 1).contiguous(), dim=-1)
         k_fft = torch.fft.rfft(K.permute(0, 2, 3, 1).contiguous(), dim=-1)
 
-        q_fft = torch.fft.irfft(q_fft, dim=-1)
-        k_fft = torch.fft.irfft(k_fft, dim=-1)
-
         q_fft = q_fft.permute(0, 1, 3, 2)
         b, h, l, d_k = q_fft.shape
         k_fft = k_fft.permute(0, 1, 3, 2)
-        l_k = K.shape[1]
+        l_k = k_fft.shape[2]
 
         Q_l = [self.activation(self.norm(
                self.conv_list_q[i](q_fft.reshape(b, h*d_k, -1))))
@@ -318,10 +317,13 @@ class ACAT(nn.Module):
                [:, :, :l_k].reshape(b, l_k, -1)
                for i in range(len(self.filter_length_k))]
 
-        q_fft = torch.cat(Q_l, dim=0).reshape(b, h, -1, d_k)
-        k_fft = torch.cat(K_l, dim=0).reshape(b, h, -1, d_k)
+        q_fft = torch.cat(Q_l, dim=0).reshape(b, h*d_k, -1, len(self.filter_length_q))
+        k_fft = torch.cat(K_l, dim=0).reshape(b, h*d_k, -1, len(self.filter_length_k))
+        q_fft = self.Linear_q(q_fft).reshape(b, h, l, d_k)
+        k_fft = self.Linear_k(k_fft).reshape(b, h, l_k, d_k)
 
         scores = torch.einsum('bhqd,bhkd->bhqk', q_fft, k_fft) / np.sqrt(self.d_k)
+        scores = torch.fft.irfft(scores, dim=-1)
 
         #scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
@@ -333,11 +335,11 @@ class ACAT(nn.Module):
         weights = torch.stack([mean_value[:, index[i]] for i in range(top_k)], dim=-1)
         attn = torch.softmax(weights, -1)
 
-        attn_f = torch.zeros((b, h, l, l_k), device=self.device)
+        attn_f = torch.zeros(b, h, Q.shape[1], K.shape[1]).float()
         attn_f[torch.arange(b)[:, None, None, None],
                   torch.arange(h)[None, :, None, None],
-                  torch.arange(l)[None, None, :, None],
-                  index] = attn.unsqueeze(1).unsqueeze(1).repeat(1, h, l, 1)
+                  torch.arange(Q.shape[1])[None, None, :, None],
+                  index] = attn.unsqueeze(1).unsqueeze(1).repeat(1, h, Q.shape[1], 1)
 
         context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
         return context, attn_f
