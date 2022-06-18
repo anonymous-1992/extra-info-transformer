@@ -30,7 +30,6 @@ class PositionalEncoding(nn.Module):
         return X
 
 
-
 class AutoCorrelation(nn.Module):
     """
     AutoCorrelation Mechanism with the following two phases:
@@ -38,13 +37,40 @@ class AutoCorrelation(nn.Module):
     (2) time delay aggregation
     This block can replace the self-attention family mechanism seamlessly.
     """
-    def __init__(self, mask_flag=True, factor=1, scale=None, attention_dropout=0.1, output_attention=False):
+    def __init__(self, device, d_k, h, mask_flag=True, factor=1, scale=None, attention_dropout=0.1, output_attention=False):
         super(AutoCorrelation, self).__init__()
         self.factor = factor
         self.scale = scale
         self.mask_flag = mask_flag
         self.output_attention = output_attention
         self.dropout = nn.Dropout(attention_dropout)
+
+        # incorporating ACAT
+
+        self.device = device
+        self.d_k = d_k
+        self.filter_length_q = [9]
+        self.filter_length_k = [9]
+        self.conv_list_q = nn.ModuleList(
+            [nn.Conv1d(in_channels=d_k * h, out_channels=d_k * h,
+                       kernel_size=f,
+                       padding=int(f / 2),
+                       bias=False,
+                       device=device) for f in self.filter_length_q])
+        self.conv_list_k = nn.ModuleList(
+            [nn.Conv1d(in_channels=d_k * h, out_channels=d_k * h,
+                       kernel_size=f,
+                       padding=int(f / 2),
+                       bias=False,
+                       device=device) for f in self.filter_length_k])
+        self.norm = nn.BatchNorm1d(d_k * h, device=device)
+        self.activation = nn.ELU()
+        self.Linear_q = nn.Linear(len(self.conv_list_q), 1, device=self.device)
+        self.Linear_k = nn.Linear(len(self.conv_list_k), 1, device=self.device)
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='leaky_relu')
+
 
     def time_delay_agg_training(self, values, corr):
         """
@@ -131,6 +157,27 @@ class AutoCorrelation(nn.Module):
         else:
             values = values[:, :L, :, :]
             keys = keys[:, :L, :, :]
+
+        # Including ACAT
+        keys = keys.permute(0, 2, 1, 3)
+        queries = queries.permute(0, 2, 1, 3)
+        b, h, l, d_k = queries.shape
+        l_k = keys.shape[2]
+
+        Q_l = [self.activation(self.norm(
+            self.conv_list_q[i](queries.reshape(b, h * d_k, -1))))
+               [:, :, :l].reshape(b, l, -1)
+               for i in range(len(self.filter_length_q))]
+        K_l = [self.activation(self.norm(
+            self.conv_list_k[i](keys.reshape(b, h * d_k, -1))))
+               [:, :, :l_k].reshape(b, l_k, -1)
+               for i in range(len(self.filter_length_k))]
+
+        queries = torch.cat(Q_l, dim=0).reshape(b, h, -1, d_k)
+        keys = torch.cat(K_l, dim=0).reshape(b, h, -1, d_k)
+
+        queries = F.relu(self.Linear_q(queries.reshape(b, h*d_k, l, -1))).reshape(b, l, h, d_k)
+        keys = F.relu(self.Linear_k(keys.reshape(b, h*d_k, l_k, -1))).reshape(b, l_k, h, d_k)
 
         # period-based dependencies
         q_fft = torch.fft.rfft(queries.permute(0, 2, 3, 1).contiguous(), dim=-1)
@@ -244,7 +291,7 @@ class BasicAttn(nn.Module):
         b, h, l, l_k = Q.shape[0], Q.shape[1], Q.shape[2], K.shape[2]
         log_k = int(l_k / 9)
         K, index = torch.topk(K, dim=2, k=log_k)
-        index = torch.max(index, -1)[0]
+        index = index[:, :, :, 0]
         index = index.unsqueeze(-2).repeat(1, 1, l, 1)
 
         scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
@@ -290,7 +337,8 @@ class ACAT(nn.Module):
                        device=device) for f in self.filter_length_k])
         self.norm = nn.BatchNorm1d(d_k*h, device=device)
         self.activation = nn.ELU()
-        #self.max_pooling = nn.MaxPool2d(kernel_size=(1, 3))
+        self.Linear_q = nn.Linear(len(self.conv_list_q), 1, device=self.device)
+        self.Linear_k = nn.Linear(len(self.conv_list_k), 1, device=self.device)
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -314,7 +362,7 @@ class ACAT(nn.Module):
         K = torch.cat(K_l, dim=0).reshape(b, h, -1, d_k)
         log_k = int(l_k / max(self.filter_length_k))
         K, index = torch.topk(K, dim=2, k=log_k)
-        index = torch.max(index, -1)[0]
+        index = index[:, :, :, 0]
         index = index.unsqueeze(-2).repeat(1, 1, l, 1)
 
         scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
@@ -374,7 +422,8 @@ class MultiHeadAttention(nn.Module):
             mask_flag = True if attn_mask is not None else False
             context, attn = ProbAttention(mask_flag=mask_flag)(q_s, k_s, v_s, attn_mask)
         else:
-            context, attn = AutoCorrelation()(q_s.transpose(1, 2), k_s.transpose(1, 2), v_s.transpose(1, 2), attn_mask)
+            context, attn = AutoCorrelation(device=self.device, d_k=self.d_k, h=self.n_heads)\
+                (q_s.transpose(1, 2), k_s.transpose(1, 2), v_s.transpose(1, 2), attn_mask)
 
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         output = self.fc(context)
