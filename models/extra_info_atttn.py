@@ -301,6 +301,9 @@ class ACAT(nn.Module):
         q_fft = torch.fft.rfft(Q.permute(0, 2, 3, 1).contiguous(), dim=-1)
         k_fft = torch.fft.rfft(K.permute(0, 2, 3, 1).contiguous(), dim=-1)
 
+        q_fft = torch.fft.irfft(q_fft, dim=-1)
+        k_fft = torch.fft.irfft(k_fft, dim=-1)
+
         q_fft = q_fft.permute(0, 1, 3, 2)
         b, h, l, d_k = q_fft.shape
         k_fft = k_fft.permute(0, 1, 3, 2)
@@ -318,8 +321,7 @@ class ACAT(nn.Module):
         q_fft = torch.cat(Q_l, dim=0).reshape(b, h, -1, d_k)
         k_fft = torch.cat(K_l, dim=0).reshape(b, h, -1, d_k)
 
-        res = torch.einsum('bhdq,bhdk->bhqk', q_fft, k_fft) / np.sqrt(self.d_k)
-        scores = torch.fft.irfft(res, dim=-1)
+        scores = torch.einsum('bhqd,bhkd->bhqk', q_fft, k_fft) / np.sqrt(self.d_k)
 
         #scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
