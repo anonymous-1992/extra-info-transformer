@@ -273,6 +273,7 @@ class ACAT(nn.Module):
         ind = torch.max(w_f, dim=0)[1]
         mask = torch.ones_like(seq, device=self.device)
         mask[:, :, :, :self.filter_length[ind]] = torch.zeros(b, h*d_k, l, self.filter_length[ind], device=self.device)
+        mask = torch.as_tensor(mask, dtype=torch.bool)
         seq = seq.masked_fill_(mask, 0)
 
         if tnsr == "query":
