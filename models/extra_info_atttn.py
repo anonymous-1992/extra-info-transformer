@@ -286,8 +286,8 @@ class ACAT(nn.Module):
 
         Q = Q.permute(0, 2, 1, 3)
         K = K.permute(0, 2, 1, 3)
-        Q = torch.tensor(gaussian_filter(Q.detach().cpu().numpy(), sigma=5)).to(self.device)
-        K = torch.tensor(gaussian_filter(K.detach().cpu().numpy(), sigma=5)).to(self.device)
+        '''Q = torch.tensor(gaussian_filter(Q.detach().cpu().numpy(), sigma=5)).to(self.device)
+        K = torch.tensor(gaussian_filter(K.detach().cpu().numpy(), sigma=5)).to(self.device)'''
         b, h, l, d_k = Q.shape
 
         Q = self.get_conv(Q.reshape(b, h*d_k, -1), Q.shape, "query")

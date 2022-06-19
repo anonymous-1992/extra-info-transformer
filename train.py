@@ -179,6 +179,7 @@ def objective(trial):
     best_iter_num = 0
     val_inner_loss = 1e10
     total_inner_loss = 1e10
+    s = time.time()
     for epoch in range(params['num_epochs']):
         total_loss = 0
         model.train()
@@ -210,6 +211,9 @@ def objective(trial):
             best_iter_num = epoch
 
         print("Validation loss: {}".format(test_loss))
+
+        end = time.time()
+        print(str(end - s))
 
         trial.report(val_loss, epoch)
 
