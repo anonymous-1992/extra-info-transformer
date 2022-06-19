@@ -269,7 +269,7 @@ class ACAT(nn.Module):
 
         f = max(self.filter_length)
         seq = F.pad(signal, (int(f / 2), int(f / 2))).unfold(-1, f, 1)[:, :, :l, :]
-        f_s = torch.FloatTensor(self.filter_length)
+        f_s = torch.FloatTensor(self.filter_length).to(self.device)
         w_f = torch.einsum('f, f -> f', f_s, self.w)
         ind = torch.max(w_f, dim=0)[1]
         mask = torch.zeros_like(seq, device=self.device)
