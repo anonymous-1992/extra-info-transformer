@@ -260,7 +260,6 @@ class ACAT(nn.Module):
         self.conv_q = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
         self.conv_k = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
 
-        self.max_pooling = nn.MaxPool2d(kernel_size=(1, len(self.filter_length)))
         self.w = nn.Parameter(torch.randn(len(self.filter_length), requires_grad=True, device=device))
 
     def get_conv(self, signal, shape, tnsr):
@@ -284,8 +283,6 @@ class ACAT(nn.Module):
 
     def forward(self, Q, K, V, attn_mask):
 
-        Q = Q.permute(0, 2, 1, 3)
-        K = K.permute(0, 2, 1, 3)
         b, h, l, d_k = Q.shape
 
         Q = self.get_conv(Q.reshape(b, h*d_k, -1), Q.shape, "query")
@@ -326,7 +323,7 @@ class MultiHeadAttention(nn.Module):
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
         if self.attn_type == "ACAT":
             context, attn = ACAT(d_k=self.d_k, device=self.device, h=self.n_heads)(
-                Q=q_s.transpose(1, 2), K=k_s.transpose(1, 2), V=v_s, attn_mask=attn_mask)
+                Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
         elif self.attn_type == "basic_attn":
             context, attn = BasicAttn(d_k=self.d_k, device=self.device)(
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
