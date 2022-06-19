@@ -272,9 +272,9 @@ class ACAT(nn.Module):
         f_s = torch.FloatTensor(self.filter_length).to(self.device)
         w_f = torch.einsum('f, f -> f', f_s, self.w)
         ind = torch.max(w_f, dim=0)[1]
-        mask = torch.zeros_like(seq, device=self.device)
-        mask[:, :, :, :self.filter_length[ind]] = torch.ones(b, h*d_k, l, self.filter_length[ind], device=self.device)
-        seq = torch.einsum('bdlm, bdlm -> bdlm', seq, mask)
+        mask = torch.ones_like(seq, device=self.device)
+        mask[:, :, :, :self.filter_length[ind]] = torch.zeros(b, h*d_k, l, self.filter_length[ind], device=self.device)
+        seq = seq.masked_fill_(mask, 0)
 
         if tnsr == "query":
             signal_f = torch.einsum('bdlf, dof-> blo', seq, self.conv_q).reshape(b, h, l, d_k)
