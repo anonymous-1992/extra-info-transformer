@@ -275,9 +275,6 @@ class ACAT(nn.Module):
         self.Linear_q = nn.Linear(len(self.conv_list_q), 1, device=self.device, dtype=torch.cfloat)
         self.Linear_k = nn.Linear(len(self.conv_list_k), 1, device=self.device, dtype=torch.cfloat)
 
-        for m in self.modules():
-            if isinstance(m, nn.Parameter):
-                nn.init.kaiming_normal_(m, mode='fan_in', nonlinearity='leaky_relu')
 
     def get_complex_conv(self, signal, shape):
 
@@ -294,17 +291,21 @@ class ACAT(nn.Module):
 
         q_fft = torch.fft.rfft(Q.permute(0, 2, 3, 1).contiguous(), dim=-1)
         k_fft = torch.fft.rfft(K.permute(0, 2, 3, 1).contiguous(), dim=-1)
+        v_fft = torch.fft.rfft(K.permute(0, 2, 3, 1).contiguous(), dim=-1)
         q_fft = q_fft.permute(0, 1, 3, 2)
         k_fft = k_fft.permute(0, 1, 3, 2)
+        v_fft = v_fft.permute(0, 1, 3, 2)
         b, h, l, d_k = q_fft.shape
 
         q_fft = self.get_complex_conv(q_fft.reshape(b, h*d_k, -1), q_fft.shape)
         k_fft = self.get_complex_conv(k_fft.reshape(b, h*d_k, -1), k_fft.shape)
 
         scores = torch.einsum('bhqd,bhkd->bhqk', q_fft, k_fft) / np.sqrt(self.d_k)
-        scores = torch.fft.irfft(scores, dim=-1)
+        scores = torch.fft.irfft(scores, dim=-2)
+        attn = torch.softmax(scores, -1)
+        attn = torch.fft.rfft(attn, dim=-2)
 
-        length = V.shape[2]
+        '''length = V.shape[2]
         # find top k
         top_k = int(math.log(length))
         mean_value = torch.mean(torch.mean(scores, dim=1), dim=1)
@@ -316,10 +317,12 @@ class ACAT(nn.Module):
         attn_f[torch.arange(b)[:, None, None, None],
                   torch.arange(h)[None, :, None, None],
                   torch.arange(Q.shape[1])[None, None, :, None],
-                  index] = attn.unsqueeze(1).unsqueeze(1).repeat(1, h, Q.shape[1], 1)
+                  index] = attn.unsqueeze(1).unsqueeze(1).repeat(1, h, Q.shape[1], 1)'''
 
-        context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
-        return context, attn_f
+        context = torch.einsum('bhqk,bhkd->bhqd', attn, v_fft)
+        context = torch.fft.irfft(context, dim=-2)
+
+        return context, attn
 
 
 class MultiHeadAttention(nn.Module):

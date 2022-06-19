@@ -1,6 +1,7 @@
 import gzip
 
 from optuna.samplers import TPESampler
+from scipy.ndimage import gaussian_filter
 
 from models.extra_info_atttn import Attn
 from torch.optim import Adam
@@ -184,7 +185,7 @@ def objective(trial):
         for batch_id in range(train_en.shape[0]):
             output = model(train_en[batch_id], train_de[batch_id])
             '''smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=5)).to(device)
-            loss = criterion(output, train_y_p[batch_id]) + lam * L1Loss(output, smooth_output)'''
+            loss = criterion(output, train_y[batch_id]) + 0.1 * L1Loss(output, smooth_output)'''
             loss = criterion(output, train_y[batch_id])
             total_loss += loss.item()
             optimizer.zero_grad()
