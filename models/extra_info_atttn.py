@@ -256,7 +256,7 @@ class ACAT(nn.Module):
         self.device = device
         self.d_k = d_k
 
-        self.filter_length = [1, 3, 6, 9]
+        self.filter_length = [1, 3, 6, 9, 12]
         self.conv_q = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
         self.conv_k = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
 
