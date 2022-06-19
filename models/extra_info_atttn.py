@@ -263,7 +263,7 @@ class ACAT(nn.Module):
         self.Linear_q = nn.Parameter(torch.randn(d_k * h, d_k*h,  len(self.filter_length), requires_grad=True, device=device))
         self.Linear_k = nn.Parameter(torch.randn(d_k * h, d_k*h, len(self.filter_length), requires_grad=True, device=device))
 
-    def get_complex_conv(self, signal, shape, tnsr):
+    def get_conv(self, signal, shape, tnsr):
 
         b, h, l, d_k = shape
 
@@ -288,8 +288,8 @@ class ACAT(nn.Module):
         K = torch.tensor(gaussian_filter(K.detach().cpu().numpy(), sigma=5)).to(self.device)
         b, h, l, d_k = Q.shape
 
-        Q = self.get_complex_conv(Q.reshape(b, h*d_k, -1), Q.shape, "query")
-        K = self.get_complex_conv(K.reshape(b, h*d_k, -1), K.shape, "key")
+        Q = self.get_conv(Q.reshape(b, h*d_k, -1), Q.shape, "query")
+        K = self.get_conv(K.reshape(b, h*d_k, -1), K.shape, "key")
         scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
         attn = torch.softmax(scores, -1)
         context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
