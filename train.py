@@ -213,7 +213,6 @@ def objective(trial):
         print("Validation loss: {}".format(test_loss))
 
         end = time.time()
-        print(str(end - s))
 
         trial.report(val_loss, epoch)
 
