@@ -242,13 +242,6 @@ class BasicAttn(nn.Module):
     def forward(self, Q, K, V, attn_mask):
 
         scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
-
-        if attn_mask is not None:
-
-            attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
-            attn_mask = attn_mask.to(self.device)
-            scores.masked_fill_(attn_mask, -1e9)
-
         attn = torch.softmax(scores, -1)
         context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
@@ -263,33 +256,28 @@ class ACAT(nn.Module):
         self.device = device
         self.d_k = d_k
 
-        self.filter_length = [9]
-        self.conv_list_q = nn.ParameterList(
-            [nn.Parameter(torch.randn(d_k*h, f, requires_grad=True, device=device))
-            for f in self.filter_length]
-        )
-        self.conv_list_k = nn.ParameterList(
-            [nn.Parameter(torch.randn(d_k * h, f, requires_grad=True, device=device))
-             for f in self.filter_length]
-        )
+        self.filter_length = [1, 3, 6, 9]
+        self.conv_q = nn.Parameter(torch.randn(d_k*h, d_k*h, len(self.filter_length), max(self.filter_length), requires_grad=True, device=device))
+        self.conv_k = nn.Parameter(torch.randn(d_k*h, d_k*h, len(self.filter_length), max(self.filter_length), requires_grad=True, device=device))
 
-        self.Linear_q = nn.Parameter(torch.randn(d_k * h, len(self.conv_list_q), requires_grad=True, device=device))
-        self.Linear_k = nn.Parameter(torch.randn(d_k * h, len(self.conv_list_k), requires_grad=True, device=device))
+        self.Linear_q = nn.Parameter(torch.randn(d_k * h, d_k*h,  len(self.filter_length), requires_grad=True, device=device))
+        self.Linear_k = nn.Parameter(torch.randn(d_k * h, d_k*h, len(self.filter_length), requires_grad=True, device=device))
 
     def get_complex_conv(self, signal, shape, tnsr):
 
         b, h, l, d_k = shape
-        signal_multi_pad = [F.pad(signal, (int(f/2), int(f/2))).unfold(-1, f, 1) for f in self.filter_length]
 
-        signal_multi = [torch.einsum('bdlk, dk -> bdl', signal_multi_pad[i], self.conv_list_q[i])
-               for i in range(len(self.filter_length))]
+        expand_signal = torch.zeros(b, h*d_k, l, len(self.filter_length), max(self.filter_length), device=self.device)
 
-        signal_cat = torch.cat(signal_multi, dim=0).reshape(b, h * d_k, -1, len(self.filter_length))
+        for i, f in enumerate(self.filter_length):
+            expand_signal[:, :, :, i, :f] = F.pad(signal, (int(f/2), int(f/2))).unfold(-1, f, 1)[:, :, :l, :]
 
         if tnsr == "query":
-            signal_f = torch.einsum('bdlf, df-> bdl', signal_cat, self.Linear_q).reshape(b, h, l, d_k)
+            signal_f = F.relu(torch.einsum('bdlmf, domf-> blom', expand_signal, self.conv_q))
+            signal_f = torch.max(torch.einsum('bldm, odm-> blom', signal_f, self.Linear_q), dim=-1)[0].reshape(b, h, l, d_k)
         else:
-            signal_f = torch.einsum('bdlf, df-> bdl', signal_cat, self.Linear_k).reshape(b, h, l, d_k)
+            signal_f = F.relu(torch.einsum('bdlmf, domf-> blom', expand_signal, self.conv_k))
+            signal_f = torch.max(torch.einsum('bldm, odm-> blom', signal_f, self.Linear_k), dim=-1)[0].reshape(b, h, l, d_k)
         return signal_f
 
     def forward(self, Q, K, V, attn_mask):
