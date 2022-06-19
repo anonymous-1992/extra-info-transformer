@@ -257,27 +257,29 @@ class ACAT(nn.Module):
         self.d_k = d_k
 
         self.filter_length = [1, 3, 6, 9]
-        self.conv_q = nn.Parameter(torch.randn(d_k*h, d_k*h, len(self.filter_length), max(self.filter_length), requires_grad=True, device=device))
-        self.conv_k = nn.Parameter(torch.randn(d_k*h, d_k*h, len(self.filter_length), max(self.filter_length), requires_grad=True, device=device))
+        self.conv_q = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
+        self.conv_k = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
 
-        self.Linear_q = nn.Parameter(torch.randn(d_k * h, d_k*h,  len(self.filter_length), requires_grad=True, device=device))
-        self.Linear_k = nn.Parameter(torch.randn(d_k * h, d_k*h, len(self.filter_length), requires_grad=True, device=device))
+        self.max_pooling = nn.MaxPool2d(kernel_size=(1, len(self.filter_length)))
+        self.w = nn.Parameter(torch.randn(len(self.filter_length), requires_grad=True, device=device))
 
     def get_conv(self, signal, shape, tnsr):
 
         b, h, l, d_k = shape
 
-        expand_signal = torch.zeros(b, h*d_k, l, len(self.filter_length), max(self.filter_length), device=self.device)
-
-        for i, f in enumerate(self.filter_length):
-            expand_signal[:, :, :, i, :f] = F.pad(signal, (int(f/2), int(f/2))).unfold(-1, f, 1)[:, :, :l, :]
+        f = max(self.filter_length)
+        seq = F.pad(signal, (int(f / 2), int(f / 2))).unfold(-1, f, 1)[:, :, :l, :]
+        f_s = torch.FloatTensor(self.filter_length)
+        w_f = torch.einsum('f, f -> f', f_s, self.w)
+        ind = torch.max(w_f, dim=0)[1]
+        mask = torch.zeros_like(seq, device=self.device)
+        mask[:, :, :, :self.filter_length[ind]] = torch.ones(b, h*d_k, l, self.filter_length[ind], device=self.device)
+        seq = torch.einsum('bdlm, bdlm -> bdlm', seq, mask)
 
         if tnsr == "query":
-            signal_f = F.relu(torch.einsum('bdlmf, domf-> blom', expand_signal, self.conv_q))
-            signal_f = torch.max(torch.einsum('bldm, odm-> blom', signal_f, self.Linear_q), dim=-1)[0].reshape(b, h, l, d_k)
+            signal_f = torch.einsum('bdlf, dof-> blo', seq, self.conv_q).reshape(b, h, l, d_k)
         else:
-            signal_f = F.relu(torch.einsum('bdlmf, domf-> blom', expand_signal, self.conv_k))
-            signal_f = torch.max(torch.einsum('bldm, odm-> blom', signal_f, self.Linear_k), dim=-1)[0].reshape(b, h, l, d_k)
+            signal_f = torch.einsum('bdlf, dof-> blo', seq, self.conv_k).reshape(b, h, l, d_k)
         return signal_f
 
     def forward(self, Q, K, V, attn_mask):
