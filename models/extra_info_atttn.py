@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn.functional as F
 import math
 import random
+from scipy.ndimage import gaussian_filter
 
 
 def get_attn_subsequent_mask(seq):
@@ -264,63 +265,46 @@ class ACAT(nn.Module):
 
         self.filter_length = [9]
         self.conv_list_q = nn.ParameterList(
-            [nn.Parameter(torch.randn(d_k*h, f, requires_grad=True, dtype=torch.cfloat, device=device))
+            [nn.Parameter(torch.randn(d_k*h, f, requires_grad=True, device=device))
             for f in self.filter_length]
         )
         self.conv_list_k = nn.ParameterList(
-            [nn.Parameter(torch.randn(d_k * h, f, requires_grad=True, dtype=torch.cfloat, device=device))
+            [nn.Parameter(torch.randn(d_k * h, f, requires_grad=True, device=device))
              for f in self.filter_length]
         )
 
-        self.Linear_q = nn.Linear(len(self.conv_list_q), 1, device=self.device, dtype=torch.cfloat)
-        self.Linear_k = nn.Linear(len(self.conv_list_k), 1, device=self.device, dtype=torch.cfloat)
+        self.Linear_q = nn.Parameter(torch.randn(d_k * h, len(self.conv_list_q), requires_grad=True, device=device))
+        self.Linear_k = nn.Parameter(torch.randn(d_k * h, len(self.conv_list_k), requires_grad=True, device=device))
 
-
-    def get_complex_conv(self, signal, shape):
+    def get_complex_conv(self, signal, shape, tnsr):
 
         b, h, l, d_k = shape
         signal_multi_pad = [F.pad(signal, (int(f/2), int(f/2))).unfold(-1, f, 1) for f in self.filter_length]
 
         signal_multi = [torch.einsum('bdlk, dk -> bdl', signal_multi_pad[i], self.conv_list_q[i])
                for i in range(len(self.filter_length))]
-        signal_f = self.Linear_q(torch.cat(signal_multi, dim=0).
-                                 reshape(b, h * d_k, -1, len(self.filter_length))).reshape(b, h, l, d_k)
+
+        signal_cat = torch.cat(signal_multi, dim=0).reshape(b, h * d_k, -1, len(self.filter_length))
+
+        if tnsr == "query":
+            signal_f = torch.einsum('bdlf, df-> bdl', signal_cat, self.Linear_q).reshape(b, h, l, d_k)
+        else:
+            signal_f = torch.einsum('bdlf, df-> bdl', signal_cat, self.Linear_k).reshape(b, h, l, d_k)
         return signal_f
 
     def forward(self, Q, K, V, attn_mask):
 
-        q_fft = torch.fft.rfft(Q.permute(0, 2, 3, 1).contiguous(), dim=-1)
-        k_fft = torch.fft.rfft(K.permute(0, 2, 3, 1).contiguous(), dim=-1)
-        v_fft = torch.fft.rfft(K.permute(0, 2, 3, 1).contiguous(), dim=-1)
-        q_fft = q_fft.permute(0, 1, 3, 2)
-        k_fft = k_fft.permute(0, 1, 3, 2)
-        v_fft = v_fft.permute(0, 1, 3, 2)
-        b, h, l, d_k = q_fft.shape
+        Q = Q.permute(0, 2, 1, 3)
+        K = K.permute(0, 2, 1, 3)
+        Q = torch.tensor(gaussian_filter(Q.detach().cpu().numpy(), sigma=5)).to(self.device)
+        K = torch.tensor(gaussian_filter(K.detach().cpu().numpy(), sigma=5)).to(self.device)
+        b, h, l, d_k = Q.shape
 
-        q_fft = self.get_complex_conv(q_fft.reshape(b, h*d_k, -1), q_fft.shape)
-        k_fft = self.get_complex_conv(k_fft.reshape(b, h*d_k, -1), k_fft.shape)
-
-        scores = torch.einsum('bhqd,bhkd->bhqk', q_fft, k_fft) / np.sqrt(self.d_k)
-        scores = torch.fft.irfft(scores, dim=-2)
+        Q = self.get_complex_conv(Q.reshape(b, h*d_k, -1), Q.shape, "query")
+        K = self.get_complex_conv(K.reshape(b, h*d_k, -1), K.shape, "key")
+        scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
         attn = torch.softmax(scores, -1)
-        attn = torch.fft.rfft(attn, dim=-2)
-
-        '''length = V.shape[2]
-        # find top k
-        top_k = int(math.log(length))
-        mean_value = torch.mean(torch.mean(scores, dim=1), dim=1)
-        index = torch.topk(torch.mean(mean_value, dim=0), top_k, dim=-1)[1]
-        weights = torch.stack([mean_value[:, index[i]] for i in range(top_k)], dim=-1)
-        attn = torch.softmax(weights, -1)
-
-        attn_f = torch.zeros(b, h, Q.shape[1], K.shape[1], device=self.device).float()
-        attn_f[torch.arange(b)[:, None, None, None],
-                  torch.arange(h)[None, :, None, None],
-                  torch.arange(Q.shape[1])[None, None, :, None],
-                  index] = attn.unsqueeze(1).unsqueeze(1).repeat(1, h, Q.shape[1], 1)'''
-
-        context = torch.einsum('bhqk,bhkd->bhqd', attn, v_fft)
-        context = torch.fft.irfft(context, dim=-2)
+        context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
 
         return context, attn
 
