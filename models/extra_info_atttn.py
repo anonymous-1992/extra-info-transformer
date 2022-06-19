@@ -256,7 +256,7 @@ class ACAT(nn.Module):
         self.device = device
         self.d_k = d_k
 
-        self.filter_length = [1, 3, 6, 9, 12]
+        self.filter_length = [2, 4]
         self.conv_q = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
         self.conv_k = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
 
@@ -271,10 +271,9 @@ class ACAT(nn.Module):
         f_s = torch.FloatTensor(self.filter_length).to(self.device)
         w_f = torch.einsum('f, f -> f', f_s, self.w)
         ind = torch.max(w_f, dim=0)[1]
-        mask = torch.ones_like(seq, device=self.device)
-        mask[:, :, :, :self.filter_length[ind]] = torch.zeros(b, h*d_k, l, self.filter_length[ind], device=self.device)
-        mask = torch.as_tensor(mask, dtype=torch.bool)
-        seq = seq.masked_fill_(mask, 0)
+        mask = torch.zeros_like(seq, device=self.device)
+        mask[:, :, :, :self.filter_length[ind]] = torch.ones(b, h*d_k, l, self.filter_length[ind], device=self.device)
+        seq = torch.einsum('bdlm, bdlm -> bdlm', seq, mask)
 
         if tnsr == "query":
             signal_f = torch.einsum('bdlf, dof-> blo', seq, self.conv_q).reshape(b, h, l, d_k)
@@ -286,8 +285,8 @@ class ACAT(nn.Module):
 
         b, h, l, d_k = Q.shape
 
-        Q = self.get_conv(Q.reshape(b, h*d_k, -1), Q.shape, "query")
-        K = self.get_conv(K.reshape(b, h*d_k, -1), K.shape, "key")
+        Q = self.get_conv(Q.reshape(b, h*d_k, -1), Q.shape, "query") + Q
+        K = self.get_conv(K.reshape(b, h*d_k, -1), K.shape, "key") + K
         scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
         attn = torch.softmax(scores, -1)
         context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
