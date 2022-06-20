@@ -4,7 +4,6 @@ import numpy as np
 import torch.nn.functional as F
 import math
 import random
-from scipy.ndimage import gaussian_filter
 
 
 def get_attn_subsequent_mask(seq):
@@ -253,44 +252,57 @@ class ACAT(nn.Module):
     def __init__(self, d_k, device, h):
 
         super(ACAT, self).__init__()
+
         self.device = device
         self.d_k = d_k
-
-        self.filter_length = [2, 4]
-        self.conv_q = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
-        self.conv_k = nn.Parameter(torch.randn(d_k*h, d_k*h, max(self.filter_length), requires_grad=True, device=device))
-
-        self.w = nn.Parameter(torch.randn(len(self.filter_length), requires_grad=True, device=device))
-
-    def get_conv(self, signal, shape, tnsr):
-
-        b, h, l, d_k = shape
-
-        f = max(self.filter_length)
-        seq = F.pad(signal, (int(f / 2), int(f / 2))).unfold(-1, f, 1)[:, :, :l, :]
-        f_s = torch.FloatTensor(self.filter_length).to(self.device)
-        w_f = torch.einsum('f, f -> f', f_s, self.w)
-        ind = torch.max(w_f, dim=0)[1]
-        mask = torch.zeros_like(seq, device=self.device)
-        mask[:, :, :, :self.filter_length[ind]] = torch.ones(b, h*d_k, l, self.filter_length[ind], device=self.device)
-        seq = torch.einsum('bdlm, bdlm -> bdlm', seq, mask)
-
-        if tnsr == "query":
-            signal_f = torch.einsum('bdlf, dof-> blo', seq, self.conv_q).reshape(b, h, l, d_k)
-        else:
-            signal_f = torch.einsum('bdlf, dof-> blo', seq, self.conv_k).reshape(b, h, l, d_k)
-        return signal_f
+        self.filter_length = [1, 6, 12, 18]
+        self.conv_list_q = nn.ModuleList(
+            [nn.Conv1d(in_channels=d_k * h, out_channels=d_k * h,
+                       kernel_size=f,
+                       padding=int(f / 2),
+                       bias=False) for f in self.filter_length]).to(device)
+        self.conv_list_k = nn.ModuleList(
+            [nn.Conv1d(in_channels=d_k * h, out_channels=d_k * h,
+                       kernel_size=f,
+                       padding=int(f / 2),
+                       bias=False) for f in self.filter_length]).to(device)
+        self.norm = nn.BatchNorm1d(h * d_k).to(device)
+        self.activation = nn.ELU().to(device)
+        self.w_q = nn.Parameter(torch.randn(len(self.filter_length), d_k*h, device=self.device))
+        self.w_k = nn.Parameter(torch.randn(len(self.filter_length), d_k*h, device=self.device))
 
     def forward(self, Q, K, V, attn_mask):
 
         b, h, l, d_k = Q.shape
+        l_k = K.shape[2]
 
-        Q = self.get_conv(Q.reshape(b, h*d_k, -1), Q.shape, "query") + Q
-        K = self.get_conv(K.reshape(b, h*d_k, -1), K.shape, "key") + K
-        scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
-        attn = torch.softmax(scores, -1)
+        Q_l = [self.activation(self.norm(self.conv_list_q[i](Q.reshape(b, h * d_k, l))))[:, :, :l]
+               for i in range(len(self.filter_length))]
+        K_l = [self.activation(self.norm(self.conv_list_k[i](K.reshape(b, h * d_k, l_k))))[:, :, :l_k]
+               for i in range(len(self.filter_length))]
+        Q_p = torch.cat(Q_l, dim=0).reshape(b, h*d_k, l, -1)
+        K_p = torch.cat(K_l, dim=0).reshape(b, h*d_k, l_k, -1)
+
+        log_l_k = int(math.log2(l_k))
+        inds = [0 if i == -1 else l_k - 2**(log_l_k - i) for i in range(-1, log_l_k)]
+        inds.append(l_k - 1)
+
+        Q = self.activation(torch.einsum('bdlf, fd-> bdl', Q_p, self.w_q).reshape(b, h, l, -1))
+        K = self.activation(torch.einsum('bdlf, fd-> bdl', K_p, self.w_k).reshape(b, h, l_k, -1))
+        K_red = K[:, :, inds, :]
+
+        scores = torch.einsum('bhqd,bhkd->bhqk', Q, K_red) / np.sqrt(self.d_k)
+
+        if attn_mask is not None:
+            attn_mask = attn_mask[:, :, :, inds]
+            attn_mask = torch.as_tensor(attn_mask, dtype=torch.bool)
+            attn_mask = attn_mask.to(self.device)
+            scores.masked_fill_(attn_mask, -1e9)
+
+        scores_f = torch.zeros(b, h, l, l_k, device=self.device)
+        scores_f[:, :, :, inds] = scores
+        attn = torch.softmax(scores_f, -1)
         context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
-
         return context, attn
 
 

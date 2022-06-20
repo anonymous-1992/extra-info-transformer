@@ -24,13 +24,13 @@ from optuna.trial import TrialState
 
 
 parser = argparse.ArgumentParser(description="train context-aware attention")
-parser.add_argument("--name", type=str, default='ACAT')
+parser.add_argument("--name", type=str, default='basic_attn')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_steps", type=int, default=24*9)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='ACAT')
+parser.add_argument("--attn_type", type=str, default='basic_attn')
 args = parser.parse_args()
 
 n_distinct_trial = 1
@@ -174,7 +174,7 @@ def objective(trial):
 
     model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3], dr)
 
-    optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
+    optimizer = Adam(model.parameters())
 
     best_iter_num = 0
     val_inner_loss = 1e10
@@ -191,7 +191,7 @@ def objective(trial):
             total_loss += loss.item()
             optimizer.zero_grad()
             loss.backward()
-            optimizer.step_and_update_lr()
+            optimizer.step()
 
         print("Train epoch: {}, loss: {:.4f}".format(epoch, total_loss))
 
