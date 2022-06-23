@@ -1,6 +1,6 @@
 import argparse
 import json
-from models.extra_info_atttn import Attn
+from models.Transformer import Attn
 import torch.nn as nn
 import torch
 import os

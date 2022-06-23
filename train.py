@@ -3,7 +3,7 @@ import gzip
 from optuna.samplers import TPESampler
 from scipy.ndimage import gaussian_filter
 
-from models.extra_info_atttn import Attn
+from models.Transformer import Attn
 from torch.optim import Adam
 import torch.nn as nn
 import numpy as np
@@ -141,7 +141,7 @@ def objective(trial):
     global val_loss
     global n_distinct_trial
 
-    d_model = trial.suggest_categorical("d_model", [16, 32])
+    d_model = trial.suggest_categorical("d_model", [32, 64])
     if args.attn_type == "conv_attn":
         kernel = trial.suggest_categorical("kernel", [1, 3, 6, 9])
     else:
