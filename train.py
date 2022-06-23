@@ -24,13 +24,13 @@ from optuna.trial import TrialState
 
 
 parser = argparse.ArgumentParser(description="train context-aware attention")
-parser.add_argument("--name", type=str, default='basic_attn')
+parser.add_argument("--name", type=str, default='ACAT')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--total_time_steps", type=int, default=192)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='basic_attn')
+parser.add_argument("--attn_type", type=str, default='ACAT')
 args = parser.parse_args()
 
 n_distinct_trial = 1
@@ -197,7 +197,7 @@ def objective(trial):
             loss.backward()
             optim.step_and_update_lr()
 
-        print("Train epoch: {}, loss: {:.4f}".format(epoch, total_loss))
+        print("Train epoch: {}, loss: {:.3f}".format(epoch, total_loss))
 
         model.eval()
         test_loss = 0
@@ -214,7 +214,7 @@ def objective(trial):
                 best_model = model
             best_iter_num = epoch
 
-        print("Validation loss: {}".format(test_loss))
+        print("Validation loss: {:.3f}".format(test_loss))
 
         end = time.time()
 
