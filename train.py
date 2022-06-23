@@ -28,7 +28,7 @@ parser.add_argument("--name", type=str, default='basic_attn')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
-parser.add_argument("--total_steps", type=int, default=24*9)
+parser.add_argument("--total_steps", type=int, default=192)
 parser.add_argument("--cuda", type=str, default='cuda:0')
 parser.add_argument("--attn_type", type=str, default='basic_attn')
 args = parser.parse_args()
@@ -45,7 +45,7 @@ train_data, valid, test = formatter.split_data(raw_data)
 train_max, valid_max = formatter.get_num_samples_for_calibration()
 params = formatter.get_experiment_params()
 
-batch_size = 512
+batch_size = 256
 
 train_sample = batch_sampled_data(train_data, train_max, batch_size, args.total_steps,
                                      params['num_encoder_steps'], params["column_definition"], args.seed)
@@ -118,7 +118,7 @@ L1Loss = nn.L1Loss()
 
 def define_model(d_model, n_heads,
                  stack_size, src_input_size,
-                 tgt_input_size, dr):
+                 tgt_input_size, kernel):
 
     d_k = int(d_model / n_heads)
 
@@ -130,7 +130,7 @@ def define_model(d_model, n_heads,
                n_layers=stack_size, src_pad_index=0,
                tgt_pad_index=0, device=device,
                attn_type=args.attn_type, seed=args.seed,
-               dr=dr)
+               kernel=kernel)
     mdl.to(device)
     return mdl
 
@@ -142,12 +142,16 @@ def objective(trial):
     global n_distinct_trial
 
     d_model = trial.suggest_categorical("d_model", [16, 32])
-    dr = trial.suggest_categorical("dr", [0])
-    if [d_model, dr] in param_history or n_distinct_trial > 4:
+    if args.attn_type == "conv_attn":
+        kernel = trial.suggest_categorical("kernel", [1, 3, 6, 9])
+    else:
+        kernel = trial.suggest_categorical("kernel", [1])
+
+    if [d_model, kernel] in param_history or n_distinct_trial > 4:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
-    param_history.append([d_model, dr])
+    param_history.append([d_model, kernel])
     stack_size = model_params["stack_size"]
     n_heads = model_params["num_heads"]
 
@@ -172,9 +176,9 @@ def objective(trial):
     valid_en, valid_de, valid_y, valid_id = \
         valid_en.to(device), valid_de.to(device), valid_y.to(device), valid_id
 
-    model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3], dr)
+    model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3], kernel)
 
-    optimizer = Adam(model.parameters())
+    optim = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 1024)
 
     best_iter_num = 0
     val_inner_loss = 1e10
@@ -189,9 +193,9 @@ def objective(trial):
             loss = criterion(output, train_y[batch_id]) + 0.1 * L1Loss(output, smooth_output)'''
             loss = criterion(output, train_y[batch_id])
             total_loss += loss.item()
-            optimizer.zero_grad()
+            optim.zero_grad()
             loss.backward()
-            optimizer.step()
+            optim.step_and_update_lr()
 
         print("Train epoch: {}, loss: {:.4f}".format(epoch, total_loss))
 
