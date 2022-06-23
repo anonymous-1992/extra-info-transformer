@@ -178,7 +178,7 @@ def objective(trial):
 
     model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3], kernel)
 
-    optim = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 2500)
+    optim = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 1000)
 
     best_iter_num = 0
     val_inner_loss = 1e10
