@@ -47,13 +47,13 @@ params = formatter.get_experiment_params()
 
 batch_size = 256
 
-train_sample = batch_sampled_data(train_data, train_max, batch_size, args.total_steps,
+train_sample = batch_sampled_data(train_data, train_max, batch_size, args.total_time_steps,
                                      params['num_encoder_steps'], params["column_definition"], args.seed)
 
-valid_sample = batch_sampled_data(valid, valid_max, batch_size, args.total_steps,
+valid_sample = batch_sampled_data(valid, valid_max, batch_size, args.total_time_steps,
                                      params['num_encoder_steps'], params["column_definition"], args.seed)
 
-test_sample = batch_sampled_data(test, valid_max, batch_size, args.total_steps,
+test_sample = batch_sampled_data(test, valid_max, batch_size, args.total_time_steps,
                                      params['num_encoder_steps'], params["column_definition"], args.seed)
 
 
@@ -318,7 +318,7 @@ def main():
     error_file[key].append("{:.3f}".format(nmae))
 
     res_path = "results_{}_{}.json".format(args.exp_name,
-                                           args.total_steps - params['num_encoder_steps'])
+                                           args.total_time_steps - params['num_encoder_steps'])
 
     if os.path.exists(res_path):
         with open(res_path) as json_file:
