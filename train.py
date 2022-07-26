@@ -1,7 +1,6 @@
 import gzip
 
 from optuna.samplers import TPESampler
-from scipy.ndimage import gaussian_filter
 
 from models.Transformer import Attn
 from torch.optim import Adam
@@ -11,30 +10,27 @@ import torch
 import argparse
 import json
 import os
-import itertools
-import sys
 import random
 import pandas as pd
 from data.data_loader import ExperimentConfig
 from Utils.base_train import batching, batch_sampled_data, inverse_output
-import time
 import optuna
 import math
 from optuna.trial import TrialState
 
 
 parser = argparse.ArgumentParser(description="train context-aware attention")
-parser.add_argument("--name", type=str, default='ACAT')
+parser.add_argument("--name", type=str, default='basic_attn')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
-parser.add_argument("--total_time_steps", type=int, default=192)
+parser.add_argument("--pred_len", type=int, default=24)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='ACAT')
+parser.add_argument("--attn_type", type=str, default='basic_attn')
 args = parser.parse_args()
 
 n_distinct_trial = 1
-config = ExperimentConfig(args.exp_name)
+config = ExperimentConfig(args.pred_len, args.exp_name)
 formatter = config.make_data_formatter()
 
 data_csv_path = "{}.csv".format(args.exp_name)
@@ -47,14 +43,14 @@ params = formatter.get_experiment_params()
 
 batch_size = 256
 
-train_sample = batch_sampled_data(train_data, train_max, batch_size, args.total_time_steps,
-                                     params['num_encoder_steps'], params["column_definition"], args.seed)
+train_sample = batch_sampled_data(train_data, batch_size, train_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], args.pred_len, params["column_definition"], args.seed)
 
-valid_sample = batch_sampled_data(valid, valid_max, batch_size, args.total_time_steps,
-                                     params['num_encoder_steps'], params["column_definition"], args.seed)
+valid_sample = batch_sampled_data(valid, batch_size, valid_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], args.pred_len, params["column_definition"], args.seed)
 
-test_sample = batch_sampled_data(test, valid_max, batch_size, args.total_time_steps,
-                                     params['num_encoder_steps'], params["column_definition"], args.seed)
+test_sample = batch_sampled_data(test, batch_size, valid_max, params['total_time_steps'],
+                                     params['num_encoder_steps'], args.pred_len, params["column_definition"], args.seed)
 
 
 log_b_size = math.ceil(math.log2(batch_size))
@@ -118,7 +114,7 @@ L1Loss = nn.L1Loss()
 
 def define_model(d_model, n_heads,
                  stack_size, src_input_size,
-                 tgt_input_size, kernel):
+                 tgt_input_size):
 
     d_k = int(d_model / n_heads)
 
@@ -129,8 +125,7 @@ def define_model(d_model, n_heads,
                d_k=d_k, d_v=d_k, n_heads=n_heads,
                n_layers=stack_size, src_pad_index=0,
                tgt_pad_index=0, device=device,
-               attn_type=args.attn_type, seed=args.seed,
-               kernel=kernel)
+               attn_type=args.attn_type, seed=args.seed)
     mdl.to(device)
     return mdl
 
@@ -141,19 +136,14 @@ def objective(trial):
     global val_loss
     global n_distinct_trial
 
-    d_model = trial.suggest_categorical("d_model", [32, 64])
-    if args.attn_type == "conv_attn":
-        kernel = trial.suggest_categorical("kernel", [1, 3, 6, 9])
-    else:
-        kernel = trial.suggest_categorical("kernel", [1])
-
-    if [d_model, kernel] in param_history or n_distinct_trial > 4:
+    d_model = trial.suggest_categorical("d_model", [16, 32, 64])
+    if [d_model] in param_history or n_distinct_trial > 4:
         raise optuna.exceptions.TrialPruned()
     else:
         n_distinct_trial += 1
-    param_history.append([d_model, kernel])
-    stack_size = model_params["stack_size"]
+    param_history.append([d_model])
     n_heads = model_params["num_heads"]
+    stack_size = model_params["stack_size"]
 
     train_en, train_de, train_y, train_id = torch.from_numpy(train_sample['enc_inputs']).to(device), \
                                             torch.from_numpy(train_sample['dec_inputs']).to(device), \
@@ -176,28 +166,27 @@ def objective(trial):
     valid_en, valid_de, valid_y, valid_id = \
         valid_en.to(device), valid_de.to(device), valid_y.to(device), valid_id
 
-    model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3], kernel)
+    model = define_model(d_model, n_heads, stack_size, train_en.shape[3], train_de.shape[3])
 
-    optim = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 1000)
+    optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, 4000)
 
     best_iter_num = 0
     val_inner_loss = 1e10
     total_inner_loss = 1e10
-    s = time.time()
     for epoch in range(params['num_epochs']):
         total_loss = 0
         model.train()
         for batch_id in range(train_en.shape[0]):
             output = model(train_en[batch_id], train_de[batch_id])
             '''smooth_output = torch.from_numpy(gaussian_filter(output.detach().cpu().numpy(), sigma=5)).to(device)
-            loss = criterion(output, train_y[batch_id]) + 0.1 * L1Loss(output, smooth_output)'''
+            loss = criterion(output, train_y_p[batch_id]) + lam * L1Loss(output, smooth_output)'''
             loss = criterion(output, train_y[batch_id])
             total_loss += loss.item()
-            optim.zero_grad()
+            optimizer.zero_grad()
             loss.backward()
-            optim.step_and_update_lr()
+            optimizer.step_and_update_lr()
 
-        print("Train epoch: {}, loss: {:.3f}".format(epoch, total_loss))
+        print("Train epoch: {}, loss: {:.4f}".format(epoch, total_loss))
 
         model.eval()
         test_loss = 0
@@ -214,9 +203,7 @@ def objective(trial):
                 best_model = model
             best_iter_num = epoch
 
-        print("Validation loss: {:.3f}".format(test_loss))
-
-        end = time.time()
+        print("Validation loss: {:.4f}".format(test_loss))
 
         trial.report(val_loss, epoch)
 
@@ -318,7 +305,7 @@ def main():
     error_file[key].append("{:.3f}".format(nmae))
 
     res_path = "results_{}_{}.json".format(args.exp_name,
-                                           args.total_time_steps - params['num_encoder_steps'])
+                                           args.total_steps - params['num_encoder_steps'])
 
     if os.path.exists(res_path):
         with open(res_path) as json_file:

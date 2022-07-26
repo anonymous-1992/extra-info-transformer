@@ -44,9 +44,9 @@ class ElectricityFormatter(GenericDataFormatter):
       ('categorical_id', DataTypes.CATEGORICAL, InputTypes.STATIC_INPUT),
     ]
 
-    def __init__(self):
+    def __init__(self, pred_len):
         """Initialises formatter."""
-
+        self._pred_len = pred_len
         self.identifiers = None
         self._real_scalers = None
         self._cat_scalers = None
@@ -220,8 +220,9 @@ class ElectricityFormatter(GenericDataFormatter):
         """Returns fixed model parameters for experiments."""
 
         fixed_params = {
-            'total_time_steps': 9 * 24,
+            'total_time_steps': 7 * 24 + 2 * self._pred_len,
             'num_encoder_steps': 7 * 24,
+            'num_decoder_steps': self._pred_len,
             'num_epochs': 50,
         }
 

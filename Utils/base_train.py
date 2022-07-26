@@ -48,8 +48,8 @@ def batching(batch_size, x_en, x_de, y_t, test_id):
     return X_en, X_de, Y_t, tst_id
 
 
-def batch_sampled_data(data, max_samples, batch_size, time_steps,
-                       num_encoder_steps, column_definition, seed):
+def batch_sampled_data(data, batch_size, max_samples, time_steps, num_encoder_steps, pred_len, column_definition, seed):
+
     """Samples segments into a compatible format.
     Args:
       data: Sources data_set to sample and batch
@@ -82,9 +82,6 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
 
             split_data_map[identifier] = df
 
-    def takeSecond(elem):
-        return elem[0], elem[1]
-
     if 0 < max_samples < len(valid_sampling_locations):
 
         ranges = [
@@ -98,13 +95,13 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
                 len(valid_sampling_locations), len(valid_sampling_locations), replace=False)
         ]
 
-    '''ranges.sort(key=lambda elem: (elem[0], elem[1]))
+    ranges.sort(key=lambda elem: (elem[0], elem[1]))
     ranges = [[x for x in g] for k, g in groupby(ranges, key=lambda x:x[0])]
     chunk_size = int(math.log2(batch_size))
     ranges = list(chain.from_iterable(ranges))
     ranges = [ranges[i:i+chunk_size] for i in range(0, len(ranges), chunk_size)]
     random.shuffle(ranges)
-    ranges = list(chain.from_iterable(ranges))'''
+    ranges = list(chain.from_iterable(ranges))
 
     id_col = utils.get_single_col_by_input_type(InputTypes.ID, column_definition)
     time_col = utils.get_single_col_by_input_type(InputTypes.TIME, column_definition)
@@ -114,15 +111,11 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
         for tup in column_definition
         if tup[2] not in {InputTypes.ID, InputTypes.TIME}
     ]
-    dec_input_cols = [
-        tup[0]
-        for tup in column_definition
-        if tup[2] not in {InputTypes.ID, InputTypes.TIME, InputTypes.TARGET}
-    ]
+
     input_size = len(enc_input_cols)
     inputs = np.zeros((max_samples, time_steps, input_size))
     enc_inputs = np.zeros((max_samples, num_encoder_steps, input_size))
-    dec_inputs = np.zeros((max_samples, time_steps - num_encoder_steps, input_size - 1))
+    dec_inputs = np.zeros((max_samples, pred_len, input_size))
     outputs = np.zeros((max_samples, time_steps, 1))
     time = np.empty((max_samples, time_steps, 1), dtype=object)
     identifiers = np.empty((max_samples, time_steps, 1), dtype=object)
@@ -134,7 +127,7 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
         sliced = split_data_map[identifier].iloc[start_idx -
                                                time_steps:start_idx]
         enc_inputs[i, :, :] = sliced[enc_input_cols].iloc[:num_encoder_steps]
-        dec_inputs[i, :, :] = sliced[dec_input_cols].iloc[num_encoder_steps:]
+        dec_inputs[i, :, :] = sliced[enc_input_cols].iloc[num_encoder_steps:-pred_len]
         inputs[i, :, :] = sliced[enc_input_cols]
         outputs[i, :, :] = sliced[[target_col]]
         time[i, :, 0] = sliced[time_col]
@@ -144,7 +137,7 @@ def batch_sampled_data(data, max_samples, batch_size, time_steps,
         'inputs': inputs,
         'enc_inputs': enc_inputs,
         'dec_inputs': dec_inputs,
-        'outputs': outputs[:, num_encoder_steps:, :],
+        'outputs': outputs[:, -pred_len:, :],
         'active_entries': np.ones_like(outputs[:, num_encoder_steps:, :]),
         'time': time,
         'identifier': identifiers
