@@ -20,13 +20,13 @@ from optuna.trial import TrialState
 
 
 parser = argparse.ArgumentParser(description="train context-aware attention")
-parser.add_argument("--name", type=str, default='basic_attn')
+parser.add_argument("--name", type=str, default='extra_info_attn')
 parser.add_argument("--exp_name", type=str, default='electricity')
 parser.add_argument("--seed", type=int, default=1234)
 parser.add_argument("--n_trials", type=int, default=50)
 parser.add_argument("--pred_len", type=int, default=24)
 parser.add_argument("--cuda", type=str, default='cuda:0')
-parser.add_argument("--attn_type", type=str, default='basic_attn')
+parser.add_argument("--attn_type", type=str, default='extra_info_attn')
 args = parser.parse_args()
 
 n_distinct_trial = 1
