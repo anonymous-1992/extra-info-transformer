@@ -53,9 +53,10 @@ class ScaledDotProductAttention(nn.Module):
                                      kernel_size=3,
                                      padding=1)
                            for _ in range(self.n_conv_layers)]).to(self.device)
-        self.norm_q = nn.BatchNorm1d(d_k * n_heads).to(device)
-        self.norm_k = nn.BatchNorm2d(d_k * n_heads).to(device)
-        self.activation = nn.ELU()
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d or nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='leaky_relu')
 
     def get_new_rep(self, tnsr):
 
@@ -66,7 +67,7 @@ class ScaledDotProductAttention(nn.Module):
         k = k.unfold(-1, log_b, 1)
         k = k.reshape(b, h*d, log_b, l)
         for i in range(self.n_conv_layers):
-            k = self.activation(self.norm_k(self.conv2d_k[i](k)))
+            k = self.conv2d_k[i](k)
         context = k.reshape(b, h, -1, d)
         return context
 
@@ -85,7 +86,7 @@ class ScaledDotProductAttention(nn.Module):
             Q = Q.reshape(b, h*d, l)
 
             for i in range(self.n_conv_layers):
-                Q = self.activation(self.norm_q(self.conv1d_q[i](Q)))
+                Q = self.conv1d_q[i](Q)
             Q = Q.reshape(b, h, l, d)
             K = self.get_new_rep(K)
             V = self.get_new_rep(V)
