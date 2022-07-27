@@ -54,10 +54,6 @@ class ScaledDotProductAttention(nn.Module):
                                      padding=1)
                            for _ in range(self.n_conv_layers)]).to(self.device)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d or nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='leaky_relu')
-
     def get_new_rep(self, tnsr):
 
         b, h, l, d = tnsr.shape
