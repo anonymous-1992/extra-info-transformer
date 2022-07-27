@@ -47,16 +47,11 @@ class ScaledDotProductAttention(nn.Module):
                                      stride=(1, 3),
                                      padding=(0, 1))
                            for _ in range(self.n_conv_layers)]).to(self.device)
-        self.conv1d_q = \
-            nn.ModuleList([nn.Conv1d(in_channels=d_k * n_heads,
-                                     out_channels=d_k * n_heads,
-                                     kernel_size=3,
-                                     padding=1)
-                           for _ in range(self.n_conv_layers)]).to(self.device)
 
     def get_new_rep(self, tnsr):
 
         b, h, l, d = tnsr.shape
+        res = tnsr
         k = tnsr.reshape(l, h*d, b)
         log_b = int(math.log2(b))
         k = F.pad(k, pad=(log_b - 1, 0, 0, 0))
@@ -64,7 +59,7 @@ class ScaledDotProductAttention(nn.Module):
         k = k.reshape(b, h*d, log_b, l)
         for i in range(self.n_conv_layers):
             k = self.conv2d_k[i](k)
-        context = k.reshape(b, h, -1, d)
+        context = torch.cat([k.reshape(b, h, -1, d), res], dim=2)
         return context
 
     def forward(self, Q, K, V, attn_mask):
@@ -77,22 +72,15 @@ class ScaledDotProductAttention(nn.Module):
 
         elif "extra_info_attn" in self.attn_type:
 
-            b, h, l, d = Q.shape
-            l_k = K.shape[2]
-            Q = Q.reshape(b, h*d, l)
-
-            for i in range(self.n_conv_layers):
-                Q = self.conv1d_q[i](Q)
-            Q = Q.reshape(b, h, l, d)
+            b, h, l_k, d = K.shape
             K = self.get_new_rep(K)
+            K, inds = torch.topk(K, l_k, dim=2)
             V = self.get_new_rep(V)
-
-            log_l_k = int(math.log2(l_k))
-            K, inds = torch.topk(K, log_l_k, dim=2)
             V = V[torch.arange(b)[:, None, None, None],
-                 torch.arange(h)[None, :, None, None],
-                 inds,
-                 torch.arange(d)[None, None, None, :]]
+                  torch.arange(h)[None, :, None, None],
+                  inds,
+                  torch.arange(d)[None, None, None, :]]
+
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
