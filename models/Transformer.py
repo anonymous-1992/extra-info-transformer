@@ -32,45 +32,44 @@ class PositionalEncoding(nn.Module):
 
 class ScaledDotProductAttention(nn.Module):
 
-    def __init__(self, d_k, device, l_k, b_size, attn_type, enc_attn=False):
+    def __init__(self, d_k, n_heads, device, attn_type):
 
         super(ScaledDotProductAttention, self).__init__()
         self.device = device
         self.d_k = d_k
         self.softmax = nn.Softmax(dim=-1)
         self.attn_type = attn_type
-        self.enc_attn = enc_attn
-        log_b = int(math.log2(b_size))
-        self.w_b = nn.Linear(log_b, log_b).to(device)
-        log_s = int(math.log2(l_k))
-        self.w_s = nn.Linear(log_s*2, log_s).to(device)
+        self.n_conv_layers = 3
+        self.conv2d_k = \
+            nn.ModuleList([nn.Conv2d(in_channels=d_k*n_heads,
+                                     out_channels=d_k*n_heads,
+                                     kernel_size=(1, 3),
+                                     stride=(1, 3),
+                                     padding=(0, 1))
+                           for _ in range(self.n_conv_layers)]).to(self.device)
+        self.conv1d_q = \
+            nn.ModuleList([nn.Conv1d(in_channels=d_k * n_heads,
+                                     out_channels=d_k * n_heads,
+                                     kernel_size=3,
+                                     padding=1)
+                           for _ in range(self.n_conv_layers)]).to(self.device)
 
     def get_new_rep(self, tnsr):
 
         b, h, l, d = tnsr.shape
-        q = tnsr
         k = tnsr.reshape(l, h*d, b)
         log_b = int(math.log2(b))
         k = F.pad(k, pad=(log_b - 1, 0, 0, 0))
         k = k.unfold(-1, log_b, 1)
-        k = F.relu(self.w_b(k))
-        k = k.reshape(b, h, l, -1, d)
-        k = k.reshape(b, h*d, -1, l)
-        log_s = int(math.log2(l))
-        k = F.pad(k, pad=(log_s*2 - 1, 0, 0, 0))
-        k = k.unfold(-1, log_s*2, 1)
-        k = F.relu(self.w_s(k))
-        k = k.reshape(b, h, l, -1, d)
-
-        score = torch.einsum('bhqd,bhqmd->bhqm', q, k) / np.sqrt(self.d_k)
-        attn = self.softmax(score)
-        context = torch.einsum('bhkn,bhknd->bhkd', attn, k) + tnsr
-
+        k = k.reshape(b, h*d, log_b, l)
+        for i in range(self.n_conv_layers):
+            k = self.conv2d_k[i](k)
+        context = k.reshape(b, h, -1, d)
         return context
 
     def forward(self, Q, K, V, attn_mask):
 
-        if self.attn_type == "basic_attn" or not self.enc_attn:
+        if self.attn_type == "basic_attn":
 
             scores = torch.einsum('bhqd, bhkd -> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
@@ -78,8 +77,22 @@ class ScaledDotProductAttention(nn.Module):
 
         elif "extra_info_attn" in self.attn_type:
 
+            b, h, l, d = Q.shape
+            l_k = K.shape[2]
+            Q = Q.reshape(b, h*d, l)
+
+            for i in range(self.n_conv_layers):
+                Q = self.conv1d_q[i](Q)
+            Q = Q.reshape(b, h, l, d)
             K = self.get_new_rep(K)
             V = self.get_new_rep(V)
+
+            log_l_k = int(math.log2(l_k))
+            K, inds = torch.topk(K, log_l_k, dim=2)
+            V = V[torch.arange(b)[:, None, None, None],
+                 torch.arange(h)[None, :, None, None],
+                 inds,
+                 torch.arange(d)[None, None, None, :]]
             scores = torch.einsum('bhqd,bhkd-> bhqk', Q, K) / np.sqrt(self.d_k)
             attn = self.softmax(scores)
             context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
@@ -116,11 +129,9 @@ class MultiHeadAttention(nn.Module):
         if attn_mask is not None:
             attn_mask = attn_mask.unsqueeze(1).repeat(1, self.n_heads, 1, 1)
         context, attn = ScaledDotProductAttention(d_k=self.d_k,
+                                                  n_heads=self.n_heads,
                                                   device=self.device,
-                                                  l_k=k_s.shape[2],
-                                                  b_size=batch_size,
-                                                  attn_type=self.attn_type,
-                                                  enc_attn=self.enc_attn)(
+                                                  attn_type=self.attn_type)(
             Q=q_s, K=k_s, V=v_s, attn_mask=attn_mask)
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         output = self.fc(context)
